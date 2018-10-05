@@ -17,7 +17,7 @@ class ssd(nn.Module):
 
 
         self.cl1 = nn.Sequential(
-            nn.Conv2d(512, 4*(num_cl + 4), 3),
+            nn.Conv2d(512, 4*(num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -32,7 +32,7 @@ class ssd(nn.Module):
         )
 
         self.cl2 = nn.Sequential(
-            nn.Conv2d(1024, 6*(num_cl + 4), 3),
+            nn.Conv2d(1024, 6*(num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -43,10 +43,20 @@ class ssd(nn.Module):
             nn.ReLU(inplace=True)
         )
 
+        self.cl3 = nn.Sequential(
+            nn.Conv2d(512, 6*(num_cl + 4), 3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+
         self.f4 = nn.Sequential(
             nn.Conv2d(512, 128, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(128, 256, 3, stride=2, padding=1), # This padding is likely wrong
+            nn.ReLU(inplace=True)
+        )
+
+        self.cl4 = nn.Sequential(
+            nn.Conv2d(256, 6*(num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -58,7 +68,7 @@ class ssd(nn.Module):
         )
 
         self.cl5 = nn.Sequential(
-            nn.Conv2d(256, 4*(num_cl + 4), 3),
+            nn.Conv2d(256, 4*(num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -66,6 +76,11 @@ class ssd(nn.Module):
             nn.Conv2d(256, 128, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(128, 256, 3),
+            nn.ReLU(inplace=True)
+        )
+
+        self.cl6 = nn.Sequential(
+            nn.Conv2d(256, 4*(num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -85,10 +100,15 @@ class ssd(nn.Module):
         print(x2_2.size())
 
         x3 = self.f3(x2)
-        print(x3.size())
+        x3_2 = self.cl3(x3)
+        # print(x3.size())
+        print(x3_2.size())
+
 
         x4 = self.f4(x3)
-        print(x4.size())
+        x4_2 = self.cl4(x4)
+        # print(x4.size())
+        print(x4_2.size())
 
         x5 = self.f5(x4)
         x5_2 = self.cl5(x5)
@@ -96,9 +116,11 @@ class ssd(nn.Module):
         print(x5_2.size())
 
         x6 = self.f6(x5)
-        print(x6.size())
+        x6_2 = self.cl6(x6)
+        # print(x6.size())
+        print(x6_2.size())
 
-        return torch.cat([x1_2, x2_2, x3, x4, x5_2, x6], dim=1)
+        return torch.cat([x1_2, x2_2, x3_2, x4_2, x5_2, x6_2], dim=1)
 
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
