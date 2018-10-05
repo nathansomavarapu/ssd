@@ -12,10 +12,11 @@ from pycocotools.coco import COCO
 
 class LocData(Dataset):
 
-    def __init__(self, ann_path, img_path, data_type, name_path=None,):
+    def __init__(self, ann_path, img_path, data_type, name_path=None, size=(300,300)):
 
         self.data_type = data_type
         self.data = []
+        self.size = size
         if self.data_type == 'VOC':
             assert name_path is not None
 
@@ -95,11 +96,23 @@ class LocData(Dataset):
         elif self.data_type == 'YOLO': 
             pass
         
-        return (ann_repr, img)
+        max_side = max(img.shape[:2])
+
+        y_pad = int((max_side - img.shape[0])/2)
+        x_pad = int((max_side - img.shape[1])/2)
+
+        img = np.pad(img, ((y_pad, y_pad), (x_pad, x_pad), (0,0)), mode='constant', constant_values=0)
+        img = cv2.resize(img, self.size)
+        img = cv2.cvtColor(curr_img, cv2.COLOR_BGR2RGB)
+        img = curr_img.astype(np.float32)/255.0
+
+        img = torch.from_numpy(img.transpose(2,0,1))
+        
+        return (img.float(), ann_repr)
 
 # traindata = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
 # ind = np.random.randint(len(traindata))
-# annotations, image = traindata[ind]
+# image, annotations = traindata[ind]
 
 # cat_dict = {}
 # for cat in traindata.coco.dataset['categories']:

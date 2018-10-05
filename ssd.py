@@ -10,9 +10,11 @@ class ssd(nn.Module):
 
         # TODO: Need to add batchnorm for all layers
         new_layers = list(vgg16(pretrained=True).features)
-        new_layers[-1] = nn.MaxPool2d(3, 1)
+        new_layers[16] = nn.MaxPool2d(2, ceil_mode=True)
+        new_layers[-1] = nn.MaxPool2d(3, 1, padding=1)
 
         self.f1 = nn.Sequential(*new_layers[:23])
+
 
         self.cl1 = nn.Sequential(
             nn.Conv2d(512, 4*(num_cl + 4), 3),
@@ -21,11 +23,11 @@ class ssd(nn.Module):
 
         self.base1 = nn.Sequential(*new_layers[23:])
 
-        # The refrence code uses  a dilation of 6 which requires a padding of 6
+        # The refrence code uses a dilation of 6 which requires a padding of 6
         self.f2 = nn.Sequential(
-            nn.Conv2d(512, 1024, 3, dilation=3, padding=1), 
-            nn.ReLU(inplace=True), 
-            nn.Conv2d(1024, 1024, 1), 
+            nn.Conv2d(512, 1024, 3, dilation=3, padding=3),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(1024, 1024, 1),
             nn.ReLU(inplace=True)
         )
 
@@ -51,7 +53,7 @@ class ssd(nn.Module):
         self.f5 = nn.Sequential(
             nn.Conv2d(256, 128, 1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 256, 3, padding=1),
+            nn.Conv2d(128, 256, 3),
             nn.ReLU(inplace=True)
         )
 
@@ -63,7 +65,7 @@ class ssd(nn.Module):
         self.f6 = nn.Sequential(
             nn.Conv2d(256, 128, 1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 256, 3, padding=1),
+            nn.Conv2d(128, 256, 3),
             nn.ReLU(inplace=True)
         )
 
@@ -72,20 +74,29 @@ class ssd(nn.Module):
 
         x1 = self.f1(x)
         x1_2 = self.cl1(x1)
+        # print(x1.size())
+        print(x1_2.size())
 
         x1 = self.base1(x1)
-
+        
         x2 = self.f2(x1)
         x2_2 = self.cl2(x2)
+        # print(x2.size())
+        print(x2_2.size())
 
         x3 = self.f3(x2)
+        print(x3.size())
 
         x4 = self.f4(x3)
+        print(x4.size())
 
         x5 = self.f5(x4)
         x5_2 = self.cl5(x5)
+        # print(x5.size())
+        print(x5_2.size())
 
         x6 = self.f6(x5)
+        print(x6.size())
 
         return torch.cat([x1_2, x2_2, x3, x4, x5_2, x6], dim=1)
 
