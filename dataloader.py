@@ -43,7 +43,7 @@ class LocData(Dataset):
             self.imgs = self.coco.getImgIds()
             self.img_path = img_path
         elif self.data_type == 'YOLO':
-            pass
+            raise NotImplementedError()
 
     def __len__(self):
         if self.data_type == 'VOC':
@@ -94,7 +94,7 @@ class LocData(Dataset):
             img = cv2.imread(os.path.join(self.img_path, img_f))
             
         elif self.data_type == 'YOLO': 
-            pass
+            raise NotImplementedError()
         
         max_side = max(img.shape[:2])
 
@@ -102,25 +102,47 @@ class LocData(Dataset):
         x_pad = int((max_side - img.shape[1])/2)
 
         img = np.pad(img, ((y_pad, y_pad), (x_pad, x_pad), (0,0)), mode='constant', constant_values=0)
+        img_pad_s = img.shape
         img = cv2.resize(img, self.size)
-        img = cv2.cvtColor(curr_img, cv2.COLOR_BGR2RGB)
-        img = curr_img.astype(np.float32)/255.0
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = img.astype(np.float32)/255.0
 
-        img = torch.from_numpy(img.transpose(2,0,1))
+        ratio_x = img.shape[1]/float(img_pad_s[1])
+        ratio_y = img.shape[0]/float(img_pad_s[0])
+
+        # Perform any anotation corrections
+        for ann in ann_repr:
+            ann[1] += x_pad
+            ann[2] += y_pad
+
+            ann[1] *= ratio_x
+            ann[2] *= ratio_y
+            ann[3] *= ratio_x
+            ann[4] *= ratio_y
         
-        return (img.float(), ann_repr)
+            
+            ann[1] += ann[3]/2.0
+            ann[2] += ann[4]/2.0
+        
+
+        img = torch.from_numpy(img.transpose(2,0,1)).float()
+        anns = torch.from_numpy(np.array(ann_repr, dtype=np.float))
+        
+        return (img, anns)
 
 # traindata = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
 # ind = np.random.randint(len(traindata))
 # image, annotations = traindata[ind]
+
+# print(annotations)
 
 # cat_dict = {}
 # for cat in traindata.coco.dataset['categories']:
 #     cat_dict[int(cat['id'])] = cat['name']
 
 # for ann in annotations:
-#     point1 = (int(ann[1]), int(ann[2]))
-#     point2 = (int(ann[1]) + int(ann[3]), int(ann[2]) + int(ann[4]))
+#     point1 = (int(ann[1] - ann[3]/2.0), int(ann[2] - ann[4]/2.0))
+#     point2 = (int(ann[1] + ann[3]/2.0), int(ann[2] + ann[4]/2.0))
 #     cv2.rectangle(image, point1, point2, (0,255,0), 4)
 #     cv2.putText(image, cat_dict[int(ann[0])], (point1[0],  point1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
