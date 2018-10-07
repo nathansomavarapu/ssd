@@ -133,12 +133,11 @@ class ssd(nn.Module):
 
         return torch.cat([x1_2, x5_2, x6_2], dim=1), torch.cat([x2_2, x3_2, x4_2], dim=1)
 
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# model = ssd(10)
+# model = model.to(device)
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-model = ssd(10)
-model = model.to(device)
+# x = torch.zeros((1, 3, 300, 300))
+# x = x.to(device)
 
-x = torch.zeros((1, 3, 300, 300))
-x = x.to(device)
-
-print(model(x))
+# print(model(x))

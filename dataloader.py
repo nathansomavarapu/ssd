@@ -9,7 +9,6 @@ import cv2
 
 from pycocotools.coco import COCO
 
-
 class LocData(Dataset):
 
     def __init__(self, ann_path, img_path, data_type, name_path=None, size=(300,300)):
@@ -123,12 +122,34 @@ class LocData(Dataset):
             
             ann[1] += ann[3]/2.0
             ann[2] += ann[4]/2.0
-        
+
+            for i in range(len(ann)):
+                ann[i] = int(ann[i])
 
         img = torch.from_numpy(img.transpose(2,0,1)).float()
-        anns = torch.from_numpy(np.array(ann_repr, dtype=np.float))
         
-        return (img, anns)
+        return (img, ann_repr)
+
+def collate_fn_cust(data):
+        imgs, anns = zip(*data)
+        imgs = torch.stack(imgs, 0)
+
+        ann_lens = [len(ann) for ann in anns]
+        per_ann_len = len(anns[0][0])
+        max_ann_len = max(ann_lens)
+
+        tmp = np.zeros((len(data), max_ann_len, per_ann_len))
+
+        for ann_ind in range(len(anns)):
+            tmp[ann_ind,:ann_lens[ann_ind],:] = anns[ann_ind]
+        
+        anns = torch.from_numpy(tmp)
+        lengths = torch.from_numpy(np.array(ann_lens))
+
+        return imgs, anns, lengths
+
+
+    
 
 # traindata = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
 # ind = np.random.randint(len(traindata))
