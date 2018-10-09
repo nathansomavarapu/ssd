@@ -10,6 +10,8 @@ def iou(bbx1, bbx2):
     b1x, b1y, b1w, b1h = tuple(bbx1)
     b2x, b2y, b2w, b2h = tuple(bbx2)
 
+    # print(b1x, b1y, b1w, b1h)
+
     b1x1 = float(int(b1x - b1w/2.0))
     b1x2 = float(int(b1x + b1w/2.0))
     b1y1 = float(int(b1y - b1h/2.0))
@@ -35,9 +37,10 @@ def iou(bbx1, bbx2):
 
     return intersection/(bbx1_a + bbx2_a - intersection)
 
-def gen_loss(pred_box_sets, anns_gt, alpha=1.0):
-    total_loss = 0.0
+def gen_loss(pred_maps, anns_gt, lens, alpha=1.0, iou_thresh=0.5, sk=[0.9, 0.76, 0.62, 0.48, .34, 0.2], ar=[1, 1, 2, (1/2.0), 3, (1/3.0)]):
     pass
+    
+    
 
 
 
@@ -46,13 +49,18 @@ def main():
     trainset = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
     trainloader = DataLoader(trainset, batch_size=4, shuffle=True, collate_fn=collate_fn_cust)
 
-    # print(trainset[0])
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    model = ssd(10)
+    model = model.to(device)  
 
     for i, data in enumerate(trainloader):
         img, anns_gt, lens = data
-        print(anns_gt)
-        print(lens)
-        if i > 0:
-            break
+
+        img = img.to(device)
+        anns_gt = anns_gt.to(device)
+        lens = lens.to(device)
+
+        out_pred = model(img)
+        gen_loss(out_pred, anns_gt, lens)
 if __name__ == '__main__':
     main()

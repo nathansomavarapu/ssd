@@ -91,7 +91,7 @@ class ssd(nn.Module):
         x1_2 = self.cl1(x1)
         # print(x1.size())
         x1_2s = x1_2.size()
-        x1_2 = x1_2.view(x1_2s[0],x1_2s[2] * x1_2s[3], 4, -1)
+        x1_2 = x1_2.view(x1_2s[0], x1_2s[2], x1_2s[3], 4, -1)
         # print(x1_2.size())
 
         x1 = self.base1(x1)
@@ -100,44 +100,45 @@ class ssd(nn.Module):
         x2_2 = self.cl2(x2)
         # print(x2.size())
         x2_2s = x2_2.size()
-        x2_2 = x2_2.view(x2_2s[0], x2_2s[2] * x2_2s[3], 6, -1)
+        x2_2 = x2_2.view(x2_2s[0], x2_2s[2], x2_2s[3], 6, -1)
         # print(x2_2.size())
 
         x3 = self.f3(x2)
         x3_2 = self.cl3(x3)
         # print(x3.size())
         x3_2s = x3_2.size()
-        x3_2 = x3_2.view(x3_2s[0], x3_2s[2] * x3_2s[3], 6, -1)
+        x3_2 = x3_2.view(x3_2s[0], x3_2s[2], x3_2s[3], 6, -1)
         # print(x3_2.size())
 
         x4 = self.f4(x3)
         x4_2 = self.cl4(x4)
         # print(x4.size())
         x4_2s = x4_2.size()
-        x4_2 = x4_2.view(x4_2s[0], x4_2s[2] * x4_2s[3], 6, -1)
+        x4_2 = x4_2.view(x4_2s[0], x4_2s[2], x4_2s[3], 6, -1)
         # print(x4_2.size())
 
         x5 = self.f5(x4)
         x5_2 = self.cl5(x5)
         # print(x5.size())
         x5_2s = x5_2.size()
-        x5_2 = x5_2.view(x5_2s[0], x5_2s[2] * x5_2s[3], 4, -1)
+        x5_2 = x5_2.view(x5_2s[0], x5_2s[2], x5_2s[3], 4, -1)
         # print(x5_2.size())
 
         x6 = self.f6(x5)
         x6_2 = self.cl6(x6)
         # print(x6.size())
         x6_2s = x6_2.size()
-        x6_2 = x6_2.view(x6_2s[0], x6_2s[2] * x6_2s[3], 4, -1)
+        x6_2 = x6_2.view(x6_2s[0], x6_2s[2], x6_2s[3], 4, -1)
         # print(x6_2.size())
 
-        return torch.cat([x1_2, x5_2, x6_2], dim=1), torch.cat([x2_2, x3_2, x4_2], dim=1)
+        return x1_2, x2_2, x3_2, x4_2, x5_2, x6_2
 
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# model = ssd(10)
-# model = model.to(device)
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+model = ssd(10)
+model = model.to(device)
 
-# x = torch.zeros((1, 3, 300, 300))
-# x = x.to(device)
+x = torch.zeros((1, 3, 300, 300))
+x = x.to(device)
 
-# print(model(x))
+for out in model(x):
+    print(out.size())
