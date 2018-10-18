@@ -123,8 +123,11 @@ class LocData(Dataset):
             ann[1] += ann[3]/2.0
             ann[2] += ann[4]/2.0
 
-            for i in range(len(ann)):
-                ann[i] = int(ann[i])
+            ann[1] /= float(self.size[0])
+            ann[2] /= float(self.size[1])
+
+            ann[3] /= float(self.size[0])
+            ann[4] /= float(self.size[1])
 
         img = torch.from_numpy(img.transpose(2,0,1)).float()
         
@@ -147,9 +150,6 @@ def collate_fn_cust(data):
         lengths = torch.from_numpy(np.array(ann_lens))
 
         return imgs, anns, lengths
-
-
-    
 
 # traindata = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
 # ind = np.random.randint(len(traindata))
