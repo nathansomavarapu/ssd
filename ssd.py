@@ -3,6 +3,10 @@ import torch.nn as nn
 import torchvision
 from torchvision.models import vgg16
 
+import itertools
+
+import numpy as np
+
 
 class ssd(nn.Module):
     def __init__(self, num_cl):
@@ -122,22 +126,41 @@ class ssd(nn.Module):
 
         preds = torch.cat([x1_2, x2_2, x3_2, x4_2, x5_2, x6_2], 1)
 
-        return preds[:,:,:self.num_cl], preds[:,:,10:]
+        return preds[:,:,:self.num_cl], preds[:,:,self.num_cl:]
     
-    def _get_pboxes(self, smin=0.2, smax=0.9, ars=[1, 2, 3, (1/2.0), (1/3.0)], fk=[38, 19, 10, 5, 3, 1]):
-        sks = [round(smin + (((smax-smin)/(self.num_pred_layers-1)) * (k-1)), 2) for k in range(1, 7)]
+    def _get_pboxes(self, smin=0.2, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], bmasks=[3, 5, 5, 5, 3, 3]):
+        sks = [round(smin + (((smax-smin)/(len(fks)-1)) * (k-1)), 2) for k in range(1, len(fks) + 1)]
+        sks = list(reversed(sks))
+
+        boxes = []
+        for k in range(len(fks)):
+            fk = fks[k]
+            for i, j in itertools.product(range(fk), range(fk)):
+                cx = (i + 0.5)/fk
+                cy = (j + 0.5)/fk
+
+                wk_prime = hk_prime = np.sqrt(sks[k] * sks[min(k+1, len(sks) - 1)])
+
+                boxes.append([cx, cy, wk_prime, hk_prime])
+
+                for ar in ars[:bmasks[k]]:
+                    wk = sks[k] * np.sqrt(ar)
+                    hk = sks[k] / np.sqrt(ar)
+
+                    boxes.append([cx, cy, wk, hk])
         
-        
+        boxes = np.array(boxes)
+        return boxes
         
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 model = ssd(10)
 model = model.to(device)
 
-model._get_pboxes()
+print(model._get_pboxes().shape)
 
-# x = torch.zeros((1, 3, 300, 300))
-# x = x.to(device)
+x = torch.zeros((1, 3, 300, 300))
+x = x.to(device)
 
-# for out in model(x):
-#     print(out.size())
+for out in model(x):
+    print(out.size())

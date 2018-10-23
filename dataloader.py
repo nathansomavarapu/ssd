@@ -156,19 +156,21 @@ def collate_fn_cust(data):
 
         return imgs, anns, lengths
 
-traindata = LocData('/Users/NS185200/Downloads/annotations/instances_train2017.json', '/Users/NS185200/Downloads/train2017', 'COCO')
+traindata = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
 ind = np.random.randint(len(traindata))
 image, annotations = traindata[ind]
 
 print(annotations)
+
+img_h, img_w = image.shape[:2]
 
 cat_dict = {}
 for cat in traindata.coco.dataset['categories']:
     cat_dict[int(cat['id'])] = cat['name']
 
 for ann in annotations:
-    point1 = (int(ann[1] - ann[3]/2.0), int(ann[2] - ann[4]/2.0))
-    point2 = (int(ann[1] + ann[3]/2.0), int(ann[2] + ann[4]/2.0))
+    point1 = (int((ann[1] - ann[3]) * img_w), int((ann[2] - ann[4]) * img_h))
+    point2 = (int((ann[1] + ann[3]) * img_w), int((ann[2] + ann[4]) * img_h))
     cv2.rectangle(image, point1, point2, (0,255,0), 4)
     cv2.putText(image, cat_dict[int(ann[0])], (point1[0],  point1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
