@@ -72,7 +72,12 @@ class LocData(Dataset):
                 w = x2 - x1
                 h = y2 - y1
 
-                ann_repr.append([cl, x1, y1, w, h])
+                assert w > 0 and h > 0
+
+                cx = x1 + w/2.0
+                cy = y1 + h/2.0
+
+                ann_repr.append([cl, cx, cy, w/2.0, h/2.0])
             img = cv2.imread(curr_img)
         # TODO: Use the COCO API to get these
         elif self.data_type == 'COCO':
@@ -86,9 +91,13 @@ class LocData(Dataset):
             img_f = img_f[0]['file_name']
             for ann in anns:
                 cl = ann['category_id']
-                bbx = ann['bbox'] # Check what format this is in
+                _bbx = ann['bbox'] # Check what format this is in
+
+                x1, y1, w, h = tuple(_bbx)
+
+                _bbx = [x1 + w/2.0, y1 + h/2.0, w/2.0, h/2.0]
                 
-                ann_repr.append([cl] + bbx)
+                ann_repr.append([cl] + _bbx)
 
             img = cv2.imread(os.path.join(self.img_path, img_f))
             
@@ -118,10 +127,6 @@ class LocData(Dataset):
             ann[2] *= ratio_y
             ann[3] *= ratio_x
             ann[4] *= ratio_y
-        
-            
-            ann[1] += ann[3]/2.0
-            ann[2] += ann[4]/2.0
 
             ann[1] /= float(self.size[0])
             ann[2] /= float(self.size[1])
@@ -151,21 +156,21 @@ def collate_fn_cust(data):
 
         return imgs, anns, lengths
 
-# traindata = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
-# ind = np.random.randint(len(traindata))
-# image, annotations = traindata[ind]
+traindata = LocData('/Users/NS185200/Downloads/annotations/instances_train2017.json', '/Users/NS185200/Downloads/train2017', 'COCO')
+ind = np.random.randint(len(traindata))
+image, annotations = traindata[ind]
 
-# print(annotations)
+print(annotations)
 
-# cat_dict = {}
-# for cat in traindata.coco.dataset['categories']:
-#     cat_dict[int(cat['id'])] = cat['name']
+cat_dict = {}
+for cat in traindata.coco.dataset['categories']:
+    cat_dict[int(cat['id'])] = cat['name']
 
-# for ann in annotations:
-#     point1 = (int(ann[1] - ann[3]/2.0), int(ann[2] - ann[4]/2.0))
-#     point2 = (int(ann[1] + ann[3]/2.0), int(ann[2] + ann[4]/2.0))
-#     cv2.rectangle(image, point1, point2, (0,255,0), 4)
-#     cv2.putText(image, cat_dict[int(ann[0])], (point1[0],  point1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+for ann in annotations:
+    point1 = (int(ann[1] - ann[3]/2.0), int(ann[2] - ann[4]/2.0))
+    point2 = (int(ann[1] + ann[3]/2.0), int(ann[2] + ann[4]/2.0))
+    cv2.rectangle(image, point1, point2, (0,255,0), 4)
+    cv2.putText(image, cat_dict[int(ann[0])], (point1[0],  point1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
-# cv2.imwrite('img_w_anns.png', image)
+cv2.imwrite('img_w_anns.png', image)
 

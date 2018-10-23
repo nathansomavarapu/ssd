@@ -127,6 +127,8 @@ class ssd(nn.Module):
     def _get_pboxes(self, smin=0.2, smax=0.9, ars=[1, 2, 3, (1/2.0), (1/3.0)], fk=[38, 19, 10, 5, 3, 1]):
         sks = [round(smin + (((smax-smin)/(self.num_pred_layers-1)) * (k-1)), 2) for k in range(1, 7)]
         
+        
+        
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 model = ssd(10)
