@@ -6,21 +6,21 @@ from torch.utils.data import DataLoader
 from dataloader import LocData, collate_fn_cust
 from ssd import ssd
 
+# TODO: Change this to perform tensor operations.
 def iou(bbx1, bbx2):
-    b1x, b1y, b1w, b1h = tuple(bbx1)
-    b2x, b2y, b2w, b2h = tuple(bbx2)
 
-    # print(b1x, b1y, b1w, b1h)
+    cx1, cy1, w1, h1 = tuple(bbx1)
+    cx2, cy2, w2, h2 = tuple(bbx2)
 
-    b1x1 = float(int(b1x - b1w/2.0))
-    b1x2 = float(int(b1x + b1w/2.0))
-    b1y1 = float(int(b1y - b1h/2.0))
-    b1y2 = float(int(b1y + b1h/2.0))
+    b1x1 = float(int(cx1 - w1))
+    b1x2 = float(int(cx1 + w1))
+    b1y1 = float(int(cy1 - h1))
+    b1y2 = float(int(cy1 + h1))
 
-    b2x1 = float(int(b2x - b2w/2.0))
-    b2x2 = float(int(b2x + b2w/2.0))
-    b2y1 = float(int(b2y - b2h/2.0))
-    b2y2 = float(int(b2y + b2h/2.0))
+    b2x1 = float(int(cx2 - w2))
+    b2x2 = float(int(cx2 + w2))
+    b2y1 = float(int(cy2 - h2))
+    b2y2 = float(int(cy2 + h2))
 
     bbx1_a = (b1x2 - b1x1) * (b1y2 - b1y2)
     bbx2_a = (b2x2 - b2x1) * (b2y2 - b2y1)
@@ -37,13 +37,6 @@ def iou(bbx1, bbx2):
 
     return intersection/(bbx1_a + bbx2_a - intersection)
 
-def gen_loss(pred_maps, anns_gt, lens, alpha=1.0, iou_thresh=0.5, sk=[0.9, 0.76, 0.62, 0.48, .34, 0.2], ar=[1, 1, 2, (1/2.0), 3, (1/3.0)]):
-    pass
-    
-    
-
-
-
 def main():
 
     trainset = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
@@ -51,7 +44,9 @@ def main():
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     model = ssd(10)
-    model = model.to(device)  
+    model = model.to(device)
+
+    default_boxes = model._get_pboxes()
 
     for i, data in enumerate(trainloader):
         img, anns_gt, lens = data
