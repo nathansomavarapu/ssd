@@ -149,18 +149,19 @@ class ssd(nn.Module):
 
                     boxes.append([cx, cy, wk, hk])
         
-        boxes = np.array(boxes)
-        return boxes
+        boxes = torch.tensor(np.array(boxes))
+        return boxes.unsqueeze(0)
+        # return boxes
         
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-model = ssd(10)
-model = model.to(device)
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# model = ssd(10)
+# model = model.to(device)
 
-print(model._get_pboxes().shape)
+# print(model._get_pboxes().shape)
 
-x = torch.zeros((1, 3, 300, 300))
-x = x.to(device)
+# x = torch.zeros((1, 3, 300, 300))
+# x = x.to(device)
 
-for out in model(x):
-    print(out.size())
+# for out in model(x):
+#     print(out.size())
