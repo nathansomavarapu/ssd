@@ -79,7 +79,6 @@ class LocData(Dataset):
 
                 ann_repr.append([cl, cx, cy, w/2.0, h/2.0])
             img = cv2.imread(curr_img)
-        # TODO: Use the COCO API to get these
         elif self.data_type == 'COCO':
             curr_img_id = self.imgs[index]
             ann_ids = self.coco.getAnnIds(imgIds=curr_img_id)
