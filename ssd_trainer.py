@@ -9,9 +9,12 @@ from ssd import ssd
 # TODO: Change this to perform tensor operations.
 def gen_loss(def_bxs, ann_bxs, lens, thresh=0.5):
 
-#     print(ann_bxs.size())
-    ann_cls = ann_bxs[:,:,0]
+    ann_cl = ann_bxs[:,:,0]
     ann_cords = ann_bxs[:,:,1:5]
+
+    batch_size = ann_bxs.size(0)
+    num_dbx = def_bxs.size(1)
+    num_ann = ann_cords.size(1)
 
     def_cx = def_bxs[:,:,0]
     def_cy = def_bxs[:,:,1]
@@ -36,46 +39,50 @@ def gen_loss(def_bxs, ann_bxs, lens, thresh=0.5):
     def_a = (defx2 - defx1) * (defy2 - defy1)
     ann_a = (annx2 - annx1) * (anny2 - anny1)
 
-    expanded_anns_a = ann_a.expand(def_a.size(1), ann_a.size(1)).unsqueeze(0)
-    def_a = def_a.unsqueeze(2).expand_as(expanded_anns_a)
+    def_a = def_a.view(batch_size, num_dbx, 1)
+    expanded_def_a = def_a.expand(batch_size, num_dbx, num_ann)
+    expanded_ann_a = ann_a.expand_as(expanded_def_a)
 
-    annx1_ex = annx1.expand(defx1.size(1), annx1.size(1)).unsqueeze(0)
-    i_x1 = torch.max(defx1.unsqueeze(2).expand_as(annx1_ex), annx1_ex)
-    annx2_ex = annx2.expand(defx2.size(1), annx2.size(1)).unsqueeze(0)
-    i_x2 = torch.min(defx2.unsqueeze(2).expand_as(annx2_ex), annx2_ex)
-    anny1_ex = anny1.expand(defy1.size(1), anny1.size(1)).unsqueeze(0)
-    i_y1 = torch.max(defy1.unsqueeze(2).expand_as(anny1_ex), anny1_ex)
-    anny2_ex = anny2.expand(defy2.size(1), anny2.size(1)).unsqueeze(0)
-    i_y2 = torch.min(defy2.unsqueeze(2).expand_as(anny2_ex), anny2_ex)
+    defx1 = defx1.view(batch_size, num_dbx, 1)
+    defx1 = defx1.expand(batch_size, num_dbx, num_ann)
+    defx2 = defx2.view(batch_size, num_dbx, 1)
+    defx2 = defx2.expand(batch_size, num_dbx, num_ann)
+    defy1 = defy1.view(batch_size, num_dbx, 1)
+    defy1 = defy1.expand(batch_size, num_dbx, num_ann)
+    defy2 = defy2.view(batch_size, num_dbx, 1)
+    defy2 = defy2.expand(batch_size, num_dbx, num_ann)
 
-    i_diff_x = torch.clamp(i_x2 - i_x1, min=0)
-    i_diff_y = torch.clamp(i_y2 - i_y1, min=0)
-    
-    intersection = i_diff_x * i_diff_y
+    annx1 = annx1.expand_as(defx1)
+    annx2 = annx2.expand_as(defx2)
+    anny1 = anny1.expand_as(defy1)
+    anny2 = anny2.expand_as(defy2)
 
-    ious = intersection/(expanded_anns_a + def_a - intersection)
-    max_ious, max_inds = torch.max(ious, dim=1)
+    x1_intersect = torch.max(defx1, annx1)
+    x2_intersect = torch.min(defx2, annx2)
+    y1_intersect = torch.max(defy1, anny1)
+    y2_intersect = torch.min(defy2, anny2)
 
-    thresh_inds = ious > thresh
+    x_intersect = torch.clamp(x2_intersect - x1_intersect, min=0)
+    y_intersect = torch.clamp(y2_intersect - y1_intersect, min=0)
 
-    print(max_ious)
-#     print(thresh_ious > 0.5)
+    intersect = x_intersect * y_intersect
 
-    print(max_ious.size())
+    ious = intersect/(expanded_ann_a + expanded_def_a - intersect)
+
+    print(ious > 0.5)
+    _, max_inds = torch.max(ious, dim=1)
+
+    max_matches = torch.zeros(ious.size())
+    max_matches[:,max_inds,:] = 1
+
     print(max_inds)
-#     print(thresh_ious.size())
+    print(max_matches)
 
-    print(thresh_inds.size())
-    print(thresh_inds.nonzero().size())
-#     thresh_inds = thresh_inds.squeeze().squeeze()
-#     print(thresh_inds)
 
-    # TODO: Join the two sets of boxes, implement hard negative mining, compute loss, add augmentations
 
 def main():
 
-#     trainset = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
-    trainset = LocData('/Users/nathan/Documents/Projects/data/annotations/instances_train2017.json', '/Users/nathan/Documents/Projects/data/train2017', 'COCO')
+    trainset = LocData('/Users/NS185200/Documents/data/annotations/instances_train2017.json', '/Users/NS185200/Documents/data/train2017', 'COCO')
     trainloader = DataLoader(trainset, batch_size=1, shuffle=True, collate_fn=collate_fn_cust)
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
