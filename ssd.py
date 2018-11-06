@@ -12,7 +12,7 @@ class ssd(nn.Module):
     def __init__(self, num_cl):
         super(ssd, self).__init__()
 
-        self.num_cl = num_cl
+        self.num_cl = num_cl + 1
 
         # TODO: Need to add batchnorm for all layers
         new_layers = list(vgg16(pretrained=True).features)
@@ -23,7 +23,7 @@ class ssd(nn.Module):
 
 
         self.cl1 = nn.Sequential(
-            nn.Conv2d(512, 4*(num_cl + 4), 3, padding=1),
+            nn.Conv2d(512, 4*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -38,7 +38,7 @@ class ssd(nn.Module):
         )
 
         self.cl2 = nn.Sequential(
-            nn.Conv2d(1024, 6*(num_cl + 4), 3, padding=1),
+            nn.Conv2d(1024, 6*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -50,7 +50,7 @@ class ssd(nn.Module):
         )
 
         self.cl3 = nn.Sequential(
-            nn.Conv2d(512, 6*(num_cl + 4), 3, padding=1),
+            nn.Conv2d(512, 6*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -62,7 +62,7 @@ class ssd(nn.Module):
         )
 
         self.cl4 = nn.Sequential(
-            nn.Conv2d(256, 6*(num_cl + 4), 3, padding=1),
+            nn.Conv2d(256, 6*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -74,7 +74,7 @@ class ssd(nn.Module):
         )
 
         self.cl5 = nn.Sequential(
-            nn.Conv2d(256, 4*(num_cl + 4), 3, padding=1),
+            nn.Conv2d(256, 4*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
 
@@ -86,7 +86,7 @@ class ssd(nn.Module):
         )
 
         self.cl6 = nn.Sequential(
-            nn.Conv2d(256, 4*(num_cl + 4), 3, padding=1),
+            nn.Conv2d(256, 4*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
         

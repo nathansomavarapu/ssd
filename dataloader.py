@@ -11,11 +11,12 @@ from pycocotools.coco import COCO
 
 class LocData(Dataset):
 
-    def __init__(self, ann_path, img_path, data_type, name_path=None, size=(300,300)):
+    def __init__(self, ann_path, img_path, data_type, name_path=None, size=(300,300), testing=False):
 
         self.data_type = data_type
         self.data = []
         self.size = size
+        self.testing = testing
         if self.data_type == 'VOC':
             assert name_path is not None
 
@@ -112,8 +113,9 @@ class LocData(Dataset):
         img = np.pad(img, ((y_pad, y_pad), (x_pad, x_pad), (0,0)), mode='constant', constant_values=0)
         img_pad_s = img.shape
         img = cv2.resize(img, self.size)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img.astype(np.float32)/255.0
+        if not self.testing:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = img.astype(np.float32)/255.0
 
         ratio_x = img.shape[1]/float(img_pad_s[1])
         ratio_y = img.shape[0]/float(img_pad_s[0])
@@ -134,9 +136,14 @@ class LocData(Dataset):
             ann[3] /= float(self.size[0])
             ann[4] /= float(self.size[1])
 
-        img = torch.from_numpy(img.transpose(2,0,1)).float()
+        if not self.testing:
+            img = torch.from_numpy(img.transpose(2,0,1)).float()
         
         return (img, ann_repr)
+    
+    def get_catagories(self):
+        if self.data_type == 'COCO':
+            return self.coco['catagories']
 
 def collate_fn_cust(data):
         imgs, anns = zip(*data)
@@ -156,7 +163,7 @@ def collate_fn_cust(data):
 
         return imgs, anns, lengths
 
-# traindata = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
+# traindata = LocData('/Users/nathan/Documents/Projects/data/annotations/instances_train2017.json', '/Users/nathan/Documents/Projects/data/train2017', 'COCO')
 # ind = np.random.randint(len(traindata))
 # image, annotations = traindata[ind]
 
@@ -167,6 +174,8 @@ def collate_fn_cust(data):
 # cat_dict = {}
 # for cat in traindata.coco.dataset['categories']:
 #     cat_dict[int(cat['id'])] = cat['name']
+
+# print(len(cat_dict))
 
 # for ann in annotations:
 #     point1 = (int((ann[1] - ann[3]) * img_w), int((ann[2] - ann[4]) * img_h))

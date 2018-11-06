@@ -7,12 +7,11 @@ from dataloader import LocData, collate_fn_cust
 from ssd import ssd
 
 # TODO: Change this to perform tensor operations.
-def iou(def_bxs, ann_bxs, lens, thresh=0.5):
+def gen_loss(def_bxs, ann_bxs, lens, thresh=0.5):
 
+#     print(ann_bxs.size())
+    ann_cls = ann_bxs[:,:,0]
     ann_cords = ann_bxs[:,:,1:5]
-
-    # print(def_bxs.size())
-    # print(ann_cords.size())
 
     def_cx = def_bxs[:,:,0]
     def_cy = def_bxs[:,:,1]
@@ -34,7 +33,7 @@ def iou(def_bxs, ann_bxs, lens, thresh=0.5):
     anny1 = torch.clamp(ann_cy - ann_h, min=0)
     anny2 = torch.clamp(ann_cy + ann_h, max=1)
 
-    def_a = (defx2 - defx1) * (defy2 - defy2)
+    def_a = (defx2 - defx1) * (defy2 - defy1)
     ann_a = (annx2 - annx1) * (anny2 - anny1)
 
     expanded_anns_a = ann_a.expand(def_a.size(1), ann_a.size(1)).unsqueeze(0)
@@ -54,15 +53,33 @@ def iou(def_bxs, ann_bxs, lens, thresh=0.5):
     
     intersection = i_diff_x * i_diff_y
 
-    return intersection/(expanded_anns_a + def_a - intersection)
+    ious = intersection/(expanded_anns_a + def_a - intersection)
+    max_ious, max_inds = torch.max(ious, dim=1)
+
+    thresh_inds = ious > thresh
+
+    print(max_ious)
+#     print(thresh_ious > 0.5)
+
+    print(max_ious.size())
+    print(max_inds)
+#     print(thresh_ious.size())
+
+    print(thresh_inds.size())
+    print(thresh_inds.nonzero().size())
+#     thresh_inds = thresh_inds.squeeze().squeeze()
+#     print(thresh_inds)
+
+    # TODO: Join the two sets of boxes, implement hard negative mining, compute loss, add augmentations
 
 def main():
 
-    trainset = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
+#     trainset = LocData('/home/shared/workspace/coco_full/annotations/instances_train2017.json', '/home/shared/workspace/coco_full/train2017', 'COCO')
+    trainset = LocData('/Users/nathan/Documents/Projects/data/annotations/instances_train2017.json', '/Users/nathan/Documents/Projects/data/train2017', 'COCO')
     trainloader = DataLoader(trainset, batch_size=1, shuffle=True, collate_fn=collate_fn_cust)
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    model = ssd(10)
+    model = ssd(80)
     model = model.to(device)
 
     default_boxes = model._get_pboxes()
@@ -77,8 +94,7 @@ def main():
 
         out_pred = model(img)
 
-        iou(default_boxes, anns_gt, lens)
+        gen_loss(default_boxes, anns_gt, lens)
         break
-        # gen_loss(out_pred, anns_gt, lens)
 if __name__ == '__main__':
     main()
