@@ -69,20 +69,19 @@ def gen_loss(def_bxs, ann_bxs, lens, thresh=0.5):
 
     ious = intersect/(expanded_ann_a + expanded_def_a - intersect)
 
-    print(ious > 0.5)
+    thresh_matches = ious > 0.5
     _, max_inds = torch.max(ious, dim=1)
 
-    max_matches = torch.zeros(ious.size())
-    max_matches[:,max_inds,:] = 1
+    max_matches = torch.zeros(ious.size()).scatter_(1, max_inds.unsqueeze(0), torch.ones(max_inds.size()).unsqueeze(0))
 
-    print(max_inds)
-    print(max_matches)
+    match_inds = torch.clamp(thresh_matches.long() + max_matches.long(), max=2)
+    print(match_inds)
 
 
 
 def main():
 
-    trainset = LocData('/Users/NS185200/Documents/data/annotations/instances_train2017.json', '/Users/NS185200/Documents/data/train2017', 'COCO')
+    trainset = LocData('/Users/nathan/Documents/Projects/data/annotations/instances_train2017.json', '/Users/nathan/Documents/Projects/data/train2017', 'COCO')
     trainloader = DataLoader(trainset, batch_size=1, shuffle=True, collate_fn=collate_fn_cust)
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
