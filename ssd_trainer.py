@@ -7,6 +7,10 @@ from torch.utils.data import DataLoader
 from dataloader import LocData, collate_fn_cust
 from ssd import ssd
 
+import torch.optim as optim
+
+import cv2
+
 # TODO: Change this to perform tensor operations.
 def gen_loss(def_bxs, ann_bxs, pred, lens, device, thresh=0.5):
 
@@ -81,7 +85,6 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, thresh=0.5):
 	match_inds = torch.clamp(thresh_matches.long() + max_matches.long(), max=2)
 	N = match_inds.sum(2).sum(1)
 	neg_N = 3 * N
-	# print(N)
 
 	if N == 0:
 		return 0
@@ -132,13 +135,9 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, thresh=0.5):
 	cl_loss_neg = torch.sort(cl_loss_neg.view(batch_size, -1), descending=True)[0][:,:neg_N]
 
 	cl_losses = torch.cat([cl_loss_pos.unsqueeze(0), cl_loss_neg], 1)
-
-	print(torch.sum(cl_losses))
-	print(torch.sum(total_loc_loss.float()))
-	print(torch.sum(cl_losses) + torch.sum(total_loc_loss.float()))
-	print(1/N.item())
 	
 	total_loss = 1/N.item() * (torch.sum(cl_losses) + torch.sum(total_loc_loss.float()))
+	return total_loss, torch.clamp(torch.sum(match_inds, dim=2), max=1.0)
 
 def main():
 
@@ -152,8 +151,11 @@ def main():
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
+	opt = optim.SGD(model.parameters(), lr=0.001)
+
 	for i, data in enumerate(trainloader):
-		img, anns_gt, lens = data
+		img, anns_gt, lens, img_old = data
+		img_old = img_old[0]
 
 		img = img.to(device)
 		anns_gt = anns_gt.to(device)
@@ -161,7 +163,21 @@ def main():
 
 		pred = model(img)
 
-		gen_loss(default_boxes, anns_gt, pred, lens, device)
+		loss, diagnostics = gen_loss(default_boxes, anns_gt, pred, lens, device)
+		print(loss)
+		for bbx in default_boxes[diagnostics.byte()]:
+			img_old = cv2.rectangle(img_old, ((bbx[0] - bbx[2]) * img_old.shape[1], (bbx[1] - bbx[3]) * img_old.shape[0]), ((bbx[0] + bbx[2]) * img_old.shape[1], (bbx[1] + bbx[3]) * img_old.shape[0]), (255,0,0))
+		
+		for ann in anns_gt[0]:
+			bbx = ann[1:]
+			img_old = cv2.rectangle(img_old, ((bbx[0] - bbx[2]) * img_old.shape[1], (bbx[1] - bbx[3]) * img_old.shape[0]), ((bbx[0] + bbx[2]) * img_old.shape[1], (bbx[1] + bbx[3]) * img_old.shape[0]), (0,255,0))
+
+		cv2.imwrite('img_w_def_anns.png', img_old)
+		opt.zero_grad()
+		loss.backward()
+		opt.step()
+
+
 		break
 if __name__ == '__main__':
 	main()

@@ -9,10 +9,11 @@ import numpy as np
 
 
 class ssd(nn.Module):
-    def __init__(self, num_cl):
+    def __init__(self, num_cl, init_weights=True):
         super(ssd, self).__init__()
 
         self.num_cl = num_cl + 1
+        self.layers = []
 
         # TODO: Need to add batchnorm for all layers
         new_layers = list(vgg16(pretrained=True).features)
@@ -20,14 +21,18 @@ class ssd(nn.Module):
         new_layers[-1] = nn.MaxPool2d(3, 1, padding=1)
 
         self.f1 = nn.Sequential(*new_layers[:23])
+        # self.layers.append(self.f1)
+        self.bn1 = nn.BatchNorm2d(512)
 
 
         self.cl1 = nn.Sequential(
             nn.Conv2d(512, 4*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.cl1)
 
         self.base1 = nn.Sequential(*new_layers[23:])
+        # self.layers.append(self.base1)
 
         # The refrence code uses a dilation of 6 which requires a padding of 6
         self.f2 = nn.Sequential(
@@ -36,35 +41,41 @@ class ssd(nn.Module):
             nn.Conv2d(1024, 1024, 1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.f2)
 
         self.cl2 = nn.Sequential(
             nn.Conv2d(1024, 6*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.cl2)
 
         self.f3 = nn.Sequential(
             nn.Conv2d(1024, 256, 1), 
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 512, 3, stride=2, padding=1), # This padding is likely wrong
+            nn.Conv2d(256, 512, 3, stride=2, padding=1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.f3)
 
         self.cl3 = nn.Sequential(
             nn.Conv2d(512, 6*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.cl3)
 
         self.f4 = nn.Sequential(
             nn.Conv2d(512, 128, 1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 256, 3, stride=2, padding=1), # This padding is likely wrong
+            nn.Conv2d(128, 256, 3, stride=2, padding=1), 
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.f4)
 
         self.cl4 = nn.Sequential(
             nn.Conv2d(256, 6*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.cl4)
 
         self.f5 = nn.Sequential(
             nn.Conv2d(256, 128, 1),
@@ -72,11 +83,13 @@ class ssd(nn.Module):
             nn.Conv2d(128, 256, 3),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.f5)
 
         self.cl5 = nn.Sequential(
             nn.Conv2d(256, 4*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.cl5)
 
         self.f6 = nn.Sequential(
             nn.Conv2d(256, 128, 1),
@@ -84,15 +97,21 @@ class ssd(nn.Module):
             nn.Conv2d(128, 256, 3),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.f6)
 
         self.cl6 = nn.Sequential(
             nn.Conv2d(256, 4*(self.num_cl + 4), 3, padding=1),
             nn.ReLU(inplace=True)
         )
+        self.layers.append(self.cl6)
+
+        if init_weights:
+            self._init_weights()
         
     def forward(self, x):
 
         x1 = self.f1(x)
+        x1 = self.bn1(x1)
         x1_2 = self.cl1(x1)
 
         x1_2 = x1_2.view(x1_2.size(0), -1, (self.num_cl + 4))
@@ -138,7 +157,7 @@ class ssd(nn.Module):
             for i, j in itertools.product(range(fk), range(fk)):
                 cx = (i + 0.5)/fk
                 cy = (j + 0.5)/fk
-
+ 
                 wk_prime = hk_prime = np.sqrt(sks[k] * sks[min(k+1, len(sks) - 1)])
 
                 boxes.append([cx, cy, wk_prime, hk_prime])
@@ -152,6 +171,14 @@ class ssd(nn.Module):
         boxes = torch.tensor(np.array(boxes))
         return boxes.unsqueeze(0)
         # return boxes
+    
+    def _init_weights(self):
+
+        for module in self.layers:
+            for layer in module:
+                if isinstance(layer, nn.Conv2d):
+                    nn.init.kaiming_normal_(layer.weight)
+
         
 
 # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
