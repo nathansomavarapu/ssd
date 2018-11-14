@@ -10,6 +10,9 @@ from ssd import ssd
 # TODO: Change this to perform tensor operations.
 def gen_loss(def_bxs, ann_bxs, pred, lens, device, thresh=0.5):
 
+	pred_cl = pred[0]
+	pred_reg = pred[1]
+	# Add lens here for accuracy
 	ann_cl = ann_bxs[:,:,0]
 	ann_cords = ann_bxs[:,:,1:5]
 
@@ -70,14 +73,14 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, thresh=0.5):
 
 	ious = intersect/(expanded_ann_a + expanded_def_a - intersect)
 
-	thresh_matches = ious > 0.5
+	thresh_matches = ious > thresh
 	_, max_inds = torch.max(ious, dim=1)
 
 	max_matches = torch.zeros(ious.size()).to(device).scatter_(1, max_inds.unsqueeze(0), torch.ones(max_inds.size()).unsqueeze(0).to(device))
 
 	match_inds = torch.clamp(thresh_matches.long() + max_matches.long(), max=2)
 	N = match_inds.sum(2).sum(1)
-
+	neg_N = 3 * N
 	# print(N)
 
 	if N == 0:
@@ -103,21 +106,39 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, thresh=0.5):
 	gh = torch.log(ann_h/def_h)
 
 	glist = [gcx, gcy, gw, gh]
-	
-	reg_crit = nn.SmoothL1Loss()
+
+	reg_crit = nn.SmoothL1Loss(reduction='none')
 
 	total_loc_loss = 0
 	for i in range(4):
-		pi = pred[1][:,:,i].view(batch_size, num_dbx, 1)
+		pi = pred_reg[:,:,i].view(batch_size, num_dbx, 1)
 		pi = pi.expand_as(glist[i])
 		total_loc_loss += reg_crit(pi.double() * match_inds.double(), glist[i] * match_inds.double())
 	
-	print(total_loc_loss)
+	cl_crit = nn.CrossEntropyLoss(reduction='none')
+
+	pred_cl = torch.transpose(pred[0],2,1)
+	pred_cl = pred_cl.unsqueeze(2)
+	pred_cl = pred_cl.expand(batch_size, pred_cl.size(1), num_ann, num_dbx)
+	ann_cl = ann_cl.view(batch_size, num_ann).unsqueeze(2).expand(batch_size, num_ann, num_dbx)
+
+	ann_cl = ann_cl * torch.transpose(match_inds,2,1).double()
+	ann_cl[ann_cl == 0] = pred_cl.size(1) - 1
+
+	cl_losses = cl_crit(pred_cl, ann_cl.long())
+
+	cl_loss_pos = cl_losses[torch.transpose(match_inds,2,1).byte()]
+	cl_loss_neg = cl_losses *  torch.abs(1 - torch.transpose(match_inds,2,1).float())
+	cl_loss_neg = torch.sort(cl_loss_neg.view(batch_size, -1), descending=True)[0][:,:neg_N]
+
+	cl_losses = torch.cat([cl_loss_pos.unsqueeze(0), cl_loss_neg], 1)
+
+	print(torch.sum(cl_losses))
+	print(torch.sum(total_loc_loss.float()))
+	print(torch.sum(cl_losses) + torch.sum(total_loc_loss.float()))
+	print(1/N.item())
 	
-
-
-
-
+	total_loss = 1/N.item() * (torch.sum(cl_losses) + torch.sum(total_loc_loss.float()))
 
 def main():
 
@@ -125,7 +146,7 @@ def main():
 	trainloader = DataLoader(trainset, batch_size=1, shuffle=True, collate_fn=collate_fn_cust)
 
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-	model = ssd(80)
+	model = ssd(len(trainset.get_categories()))
 	model = model.to(device)
 
 	default_boxes = model._get_pboxes()

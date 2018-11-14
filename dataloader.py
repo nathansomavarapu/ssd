@@ -138,11 +138,15 @@ class LocData(Dataset):
         if not self.testing:
             img = torch.from_numpy(img.transpose(2,0,1)).float()
         
+        if self.testing:
+            print(img_f)
+            print(np.array(ann_repr)[:,0])
+
         return (img, ann_repr)
     
-    def get_catagories(self):
+    def get_categories(self):
         if self.data_type == 'COCO':
-            return self.coco['catagories']
+            return self.coco.dataset['categories']
 
 def collate_fn_cust(data):
         imgs, anns = zip(*data)
