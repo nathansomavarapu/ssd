@@ -151,6 +151,9 @@ def main():
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
+	# print(default_boxes)
+	# print(default_boxes.size())
+
 	opt = optim.SGD(model.parameters(), lr=0.001)
 
 	for i, data in enumerate(trainloader):
@@ -168,6 +171,7 @@ def main():
 		for bbx in default_boxes[diagnostics.byte()]:
 			img_old = cv2.rectangle(img_old, ((bbx[0] - bbx[2]) * img_old.shape[1], (bbx[1] - bbx[3]) * img_old.shape[0]), ((bbx[0] + bbx[2]) * img_old.shape[1], (bbx[1] + bbx[3]) * img_old.shape[0]), (255,0,0))
 		
+		print(anns_gt)
 		for ann in anns_gt[0]:
 			bbx = ann[1:]
 			img_old = cv2.rectangle(img_old, ((bbx[0] - bbx[2]) * img_old.shape[1], (bbx[1] - bbx[3]) * img_old.shape[0]), ((bbx[0] + bbx[2]) * img_old.shape[1], (bbx[1] + bbx[3]) * img_old.shape[0]), (0,255,0))
