@@ -6,7 +6,9 @@ from lxml import etree
 import json
 import numpy as np
 import cv2
+import sys
 
+sys.path.append('cocoapi/PythonAPI')
 from pycocotools.coco import COCO
 
 class LocData(Dataset):

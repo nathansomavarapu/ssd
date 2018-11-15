@@ -15,13 +15,13 @@ class ssd(nn.Module):
         self.num_cl = num_cl + 1
         self.layers = []
 
-        # TODO: Need to add batchnorm for all layers
+        # TODO: Consider adding batchnorm for all layers
         new_layers = list(vgg16(pretrained=True).features)
         new_layers[16] = nn.MaxPool2d(2, ceil_mode=True)
         new_layers[-1] = nn.MaxPool2d(3, 1, padding=1)
 
         self.f1 = nn.Sequential(*new_layers[:23])
-        # self.layers.append(self.f1)
+        # TODO: Change this to L2 Layer.
         self.bn1 = nn.BatchNorm2d(512)
 
 
@@ -149,7 +149,6 @@ class ssd(nn.Module):
     
     def _get_pboxes(self, smin=0.1, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], bmasks=[3, 5, 5, 5, 3, 3]):
         sks = [round(smin + (((smax-smin)/(len(fks)-1)) * (k-1)), 2) for k in range(1, len(fks) + 1)]
-        # sks = list(reversed(sks))
 
         boxes = []
         for k in range(len(fks)):
@@ -169,8 +168,7 @@ class ssd(nn.Module):
             
         
         boxes = torch.tensor(np.array(boxes))
-        return boxes.unsqueeze(0)
-        # return boxes
+        return boxes
     
     def _init_weights(self):
 
