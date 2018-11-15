@@ -29,20 +29,30 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, thresh=0.5):
 	def_w = def_bxs[:,:,2]
 	def_h = def_bxs[:,:,3]
 
-	defx1 = torch.clamp(def_cx - def_w, min=0)
-	defx2 = torch.clamp(def_cx + def_w, max=1)
-	defy1 = torch.clamp(def_cy - def_h, min=0)
-	defy2 = torch.clamp(def_cy + def_h, max=1)
+	# defx1 = torch.clamp(def_cx - def_w, min=0)
+	# defx2 = torch.clamp(def_cx + def_w, max=1)
+	# defy1 = torch.clamp(def_cy - def_h, min=0)
+	# defy2 = torch.clamp(def_cy + def_h, max=1)
+
+	defx1 = def_cx - def_w
+	defx2 = def_cx + def_w
+	defy1 = def_cy - def_h
+	defy2 = def_cy + def_h
 
 	ann_cx = ann_cords[:,:,0]
 	ann_cy = ann_cords[:,:,1]
 	ann_w = ann_cords[:,:,2]
 	ann_h = ann_cords[:,:,3]
 
-	annx1 = torch.clamp(ann_cx - ann_w, min=0)
-	annx2 = torch.clamp(ann_cx + ann_w, max=1)
-	anny1 = torch.clamp(ann_cy - ann_h, min=0)
-	anny2 = torch.clamp(ann_cy + ann_h, max=1)
+	# annx1 = torch.clamp(ann_cx - ann_w, min=0)
+	# annx2 = torch.clamp(ann_cx + ann_w, max=1)
+	# anny1 = torch.clamp(ann_cy - ann_h, min=0)
+	# anny2 = torch.clamp(ann_cy + ann_h, max=1)
+
+	annx1 = ann_cx - ann_w
+	annx2 = ann_cx + ann_w
+	anny1 = ann_cy - ann_h
+	anny2 = ann_cy + ann_h
 
 	def_a = (defx2 - defx1) * (defy2 - defy1)
 	ann_a = (annx2 - annx1) * (anny2 - anny1)
@@ -151,9 +161,6 @@ def main():
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
-	# print(default_boxes)
-	# print(default_boxes.size())
-
 	opt = optim.SGD(model.parameters(), lr=0.001)
 
 	for i, data in enumerate(trainloader):
@@ -166,12 +173,14 @@ def main():
 
 		pred = model(img)
 
+		print(anns_gt)
+		print(pred[0].size(), pred[1].size())
+
 		loss, diagnostics = gen_loss(default_boxes, anns_gt, pred, lens, device)
 		print(loss)
 		for bbx in default_boxes[diagnostics.byte()]:
 			img_old = cv2.rectangle(img_old, ((bbx[0] - bbx[2]) * img_old.shape[1], (bbx[1] - bbx[3]) * img_old.shape[0]), ((bbx[0] + bbx[2]) * img_old.shape[1], (bbx[1] + bbx[3]) * img_old.shape[0]), (255,0,0))
 		
-		print(anns_gt)
 		for ann in anns_gt[0]:
 			bbx = ann[1:]
 			img_old = cv2.rectangle(img_old, ((bbx[0] - bbx[2]) * img_old.shape[1], (bbx[1] - bbx[3]) * img_old.shape[0]), ((bbx[0] + bbx[2]) * img_old.shape[1], (bbx[1] + bbx[3]) * img_old.shape[0]), (0,255,0))
