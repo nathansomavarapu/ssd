@@ -47,7 +47,6 @@ class LocData(Dataset):
             self.coco_cats = []
             self.cat_renum_dict = {}
 
-            print(self.coco.dataset['categories'])
             for i, cat_dict in enumerate(self.coco.dataset['categories']):
                 self.coco_cats.append(cat_dict['name'])
                 self.cat_renum_dict[cat_dict['id']] = i
@@ -149,22 +148,28 @@ class LocData(Dataset):
             ann[3] /= float(self.size[0])
             ann[4] /= float(self.size[1])
 
-        
-        if not self.testing:
-            img = torch.from_numpy(img.transpose(2,0,1)).float()
+        img = torch.from_numpy(img.transpose(2,0,1)).float()
         
         if self.testing:
-            print(img_f)
-            print(np.array(ann_repr)[:,0])
+            # print(img_f)
+            # print(np.array(ann_repr)[:,0])
+            img_h, img_w = img_old.shape[:2]
+            for ann in ann_repr:
+                point1 = (int((ann[1] - ann[3]/2.0) * img_w), int((ann[2] - ann[4]/2.0) * img_h))
+                point2 = (int((ann[1] + ann[3]/2.0) * img_w), int((ann[2] + ann[4]/2.0) * img_h))
+                cv2.rectangle(img_old, point1, point2, (0,255,0), 4)
+                cv2.putText(img_old, self.coco_cats[int(ann[0])], (point1[0],  point1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
-        return (img, ann_repr, img_old)
+            cv2.imwrite('img_w_anns.png', img_old)
+
+        return img, ann_repr
     
     def get_categories(self):
         if self.data_type == 'COCO':
            return self.coco_cats
 
 def collate_fn_cust(data):
-        imgs, anns, img_old = zip(*data)
+        imgs, anns = zip(*data)
         imgs = torch.stack(imgs, 0)
 
         ann_lens = [len(ann) for ann in anns]
@@ -179,25 +184,25 @@ def collate_fn_cust(data):
         anns = torch.from_numpy(tmp)
         lengths = torch.from_numpy(np.array(ann_lens))
 
-        return imgs, anns, lengths, img_old
+        return imgs, anns, lengths
 
-testing = True
-if testing:
-    traindata = LocData('../data/annotations/instances_train2017.json', '../data/train2017', 'COCO', testing=True)
-    ind = np.random.randint(len(traindata))
-    image, annotations, _ = traindata[ind]
+# testing = False
+# if testing:
+#     traindata = LocData('../data/annotations/instances_train2017.json', '../data/train2017', 'COCO', testing=True)
+#     ind = np.random.randint(len(traindata))
+#     image, annotations, _ = traindata[ind]
 
-    print(annotations)
+#     print(annotations)
 
-    img_h, img_w = image.shape[:2]
+#     img_h, img_w = image.shape[:2]
 
-    cat_to_names = traindata.get_categories()
+#     cat_to_names = traindata.get_categories()
 
-    for ann in annotations:
-        point1 = (int((ann[1] - ann[3]/2.0) * img_w), int((ann[2] - ann[4]/2.0) * img_h))
-        point2 = (int((ann[1] + ann[3]/2.0) * img_w), int((ann[2] + ann[4]/2.0) * img_h))
-        cv2.rectangle(image, point1, point2, (0,255,0), 4)
-        cv2.putText(image, cat_to_names[int(ann[0])], (point1[0],  point1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+#     for ann in annotations:
+#         point1 = (int((ann[1] - ann[3]/2.0) * img_w), int((ann[2] - ann[4]/2.0) * img_h))
+#         point2 = (int((ann[1] + ann[3]/2.0) * img_w), int((ann[2] + ann[4]/2.0) * img_h))
+#         cv2.rectangle(image, point1, point2, (0,255,0), 4)
+#         cv2.putText(image, cat_to_names[int(ann[0])], (point1[0],  point1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
 
-    cv2.imwrite('img_w_anns.png', image)
+#     cv2.imwrite('img_w_anns.png', image)
 
