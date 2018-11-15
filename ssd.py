@@ -168,7 +168,7 @@ class ssd(nn.Module):
             
         
         boxes = torch.tensor(np.array(boxes))
-        return boxes
+        return torch.clamp(boxes, max=1.0)
     
     def _init_weights(self):
 
