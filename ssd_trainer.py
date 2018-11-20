@@ -93,9 +93,9 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, num_cats, thresh=0.5):
 	return (total_loss)/N.item()
 
 def main():
-
+	batch_size = 4
 	trainset = LocData('../data/annotations/instances_train2017.json', '../data/train2017', 'COCO', testing=False)
-	trainloader = DataLoader(trainset, batch_size=1, shuffle=True, collate_fn=collate_fn_cust)
+	trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn_cust)
 
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 	model = ssd(len(trainset.get_categories()))
@@ -117,16 +117,16 @@ def main():
 
 		batch_loss = 0
 		for i in range(anns_gt.size(0)):
-			ann_gt = anns_gt[i]
+			ann_gt = anns_gt[i][:lens[i]]
 			pred = (preds[0][i], preds[1][i])
 			loss = gen_loss(default_boxes, ann_gt, pred, lens, device, len(trainset.get_categories()))
 			batch_loss += loss
-			print(batch_loss)
-			
+		
+		batch_loss /= batch_size
 		opt.zero_grad()
 		batch_loss.backward()
+		print(batch_loss.item())
 		opt.step()
-		break
 
 if __name__ == '__main__':
 	main()
