@@ -56,9 +56,9 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, num_cats, thresh=0.5):
 
 	max_defs, max_def_inds = torch.max(ious, 0)
 	max_anns, max_ann_inds = torch.max(ious, 1)
-	cl_nums = torch.arange(max_anns.size(0), dtype=torch.long)
+	cl_nums = torch.arange(max_anns.size(0), dtype=torch.long).to(device)
 
-	g = torch.ones((num_dbx, 4), dtype=torch.float)
+	g = torch.ones((num_dbx, 4), dtype=torch.float).to(device)
 
 	max_def_inds[max_ann_inds] = cl_nums
 
@@ -79,18 +79,18 @@ def gen_loss(def_bxs, ann_bxs, pred, lens, device, num_cats, thresh=0.5):
 	loc_loss = loc_loss.sum(0)
 
 	cl_criterion = nn.CrossEntropyLoss(reduce=False)
-	cl = torch.ones((num_dbx), dtype=torch.long) * num_cats
+	cl = torch.ones((num_dbx), dtype=torch.long).to(device) * num_cats
 	cl[match_inds] = ann_cl[max_def_inds[match_inds]].long()
 
 	cl_loss = cl_criterion(pred_cl, cl)
 	cl_pos = cl_loss[cl != num_cats]
 	cl_neg = cl_loss[cl == num_cats]
-	hnegs = torch.topk(cl_neg, N.item() * 3)[0]
+	cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
 	cl_loss = torch.cat([cl_pos, cl_neg], 0).sum(0)
 	
 	total_loss = loc_loss + cl_loss
 	
-	return (total_loss)/N.item()
+	return (total_loss)/N.item(), def_bxs[match_inds]
 
 def main():
 	batch_size = 4
@@ -122,7 +122,7 @@ def main():
 			for i in range(anns_gt.size(0)):
 				ann_gt = anns_gt[i][:lens[i]]
 				pred = (preds[0][i], preds[1][i])
-				loss = gen_loss(default_boxes, ann_gt, pred, lens, device, num_cats)
+				loss, match_boxes = gen_loss(default_boxes, ann_gt, pred, lens, device, num_cats)
 				batch_loss += loss
 			
 			batch_loss /= batch_size
@@ -137,29 +137,34 @@ def main():
 			all_offsets = preds[1][0]
 
 			print(all_cl.size(), all_offsets.size())
-			img = imgs[0].data.numpy()
+			img = imgs[0].data.cpu().numpy()
 			gts = anns_gt[0]
 			non_background_inds = (all_cl != num_cats)
-			
-			pred_offsets = all_offsets[non_background_inds]
-				
-			bbx_centers = (pred_offsets[:,:2] * default_boxes[:,2:]) + default_boxes[:,:2]
-			bbx_widths = torch.exp(pred_offsets[:,2:]) * default_boxes[:,2:]
+							
+			bbx_centers = (all_offsets[:,:2] * default_boxes[:,2:].float()) + default_boxes[:,:2].float()
+			bbx_widths = torch.exp(all_offsets[:,2:]) * default_boxes[:,2:].float()
 
 			bbx_cf = torch.cat([bbx_centers, bbx_widths], 1)
+			bbx_cf = bbx_cf[non_background_inds]
 
-			bbxs = torch.cat([bbx_cf[:,:2] - bbx_cf[:,2:], bbx_cf[:,:2] + bbx_cf[:,2:]], 1)
+			bbxs_pred = torch.cat([bbx_cf[:,:2] - bbx_cf[:,2:], bbx_cf[:,:2] + bbx_cf[:,2:]], 1)
 			
-			for i in range(bbxs.size(0)):
-				bbx = bbxs[i,:]
+			for i in range(bbxs_pred.size(0)):
+				bbx = bbxs_pred[i,:]
 				print(bbx)
-				cv2.rectangle(img, (bbx[0], bbx[1]), (bbx[2], bbx[3]) (0,255,0))
+				cv2.rectangle(img, (bbx[0], bbx[1]), (bbx[2], bbx[3]), (255,0,0))
+			
+			mb_min = match_boxes[:,:2] - match_boxes[:,2:]
+			mb_max = match_boxes[:,:2] + match_boxes[:,2:]
 
-
-
-				
-
-
+			match_boxes = torch.cat([mb_min, mb_max], 1)
+			for i in range(match_boxes.size(0)):
+				mb = match_boxes[i,:]
+				cv2.rectangle(img, (mb[0], mb[1]), (mb[2], mb[3]), (0,0,255))
+			
+			for i in range(gts.size(0)):
+				ann_box = gts[i,1:5]
+				cv2.rectangle(img, (ann_box[0], ann_box[1]), (ann_box[2], ann_box[3]), (0,0,255))
 
 if __name__ == '__main__':
 	main()
