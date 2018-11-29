@@ -136,7 +136,7 @@ def main():
 			opt.step()
 
 			if k % 100 == 0:
-				print('Epoch [%d/%d], Image [%d/%d], Total Loss %f' % (e, epochs, i, len(trainloader), batch_loss.item()))
+				print('Epoch [%d/%d], Image [%d/%d], Total Loss %f' % (e, epochs, k, len(trainloader), batch_loss.item()))
 				
 				_, all_cl = torch.max(preds[0][0], 1)
 				all_offsets = preds[1][0]
