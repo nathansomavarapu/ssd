@@ -173,13 +173,15 @@ def collate_fn_cust(data):
 		imgs = torch.stack(imgs, 0)
 
 		ann_lens = [len(ann) for ann in anns]
-		per_ann_len = len(anns[0][0])
+		per_ann_lens = [len(cann[0]) if len(cann) > 0 else 0 for cann in anns]
+		per_ann_len = max(per_ann_lens)
 		max_ann_len = max(ann_lens)
 
 		tmp = np.zeros((len(data), max_ann_len, per_ann_len))
 
 		for ann_ind in range(len(anns)):
-			tmp[ann_ind,:ann_lens[ann_ind],:] = anns[ann_ind]
+			if ann_lens[ann_ind] != 0:
+				tmp[ann_ind,:ann_lens[ann_ind],:] = anns[ann_ind]
 		
 		anns = torch.from_numpy(tmp)
 		lengths = torch.from_numpy(np.array(ann_lens))
