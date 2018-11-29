@@ -110,7 +110,7 @@ def main():
 	opt = optim.SGD(model.parameters(), lr=0.001)
 
 	for e in range(epochs):
-		for i, data in enumerate(trainloader):
+		for k, data in enumerate(trainloader):
 			imgs, anns_gt, lens = data
 
 			imgs = imgs.to(device)
@@ -135,7 +135,7 @@ def main():
 			batch_loss.backward()
 			opt.step()
 
-			if i % 100 == 0:
+			if k % 100 == 0:
 				print('Epoch [%d/%d], Image [%d/%d], Total Loss %f' % (e, epochs, i, len(trainloader), batch_loss.item()))
 				
 				_, all_cl = torch.max(preds[0][0], 1)
