@@ -7,7 +7,6 @@ import itertools
 
 import numpy as np
 
-
 class ssd(nn.Module):
     def __init__(self, num_cl, init_weights=True):
         super(ssd, self).__init__()
@@ -167,7 +166,7 @@ class ssd(nn.Module):
                     boxes.append([cx, cy, wk, hk])
             
         
-        boxes = torch.tensor(np.array(boxes))
+        boxes = torch.tensor(np.array(boxes)).float()
         return torch.clamp(boxes, max=1.0)
     
     def _init_weights(self):
@@ -178,15 +177,11 @@ class ssd(nn.Module):
                     nn.init.kaiming_normal_(layer.weight)
 
         
-
+# img = torch.random((1, 3, 300, 300))
 # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# model = ssd(10)
-# model = model.to(device)
 
-# print(model._get_pboxes().shape)
-
-# x = torch.zeros((1, 3, 300, 300))
-# x = x.to(device)
+#     model = ssd(10)
+#     model = model.to(device)
 
 # for out in model(x):
 #     print(out.size())

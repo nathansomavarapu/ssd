@@ -162,29 +162,30 @@ class LocData(Dataset):
 
 			cv2.imwrite('img_w_anns.png', img_old)
 
-		return img, ann_repr
+		ann_repr = torch.tensor(ann_repr)
+		return (img, ann_repr)
 	
 	def get_categories(self):
 		if self.data_type == 'COCO':
 			return self.coco_cats
 
 def collate_fn_cust(data):
-		imgs, anns = zip(*data)
-		imgs = torch.stack(imgs, 0)
+	imgs, anns = zip(*data)
+	imgs = torch.stack(imgs, 0)
 
-		ann_lens = [len(ann) for ann in anns]
-		per_ann_lens = [len(cann[0]) if len(cann) > 0 else 0 for cann in anns]
-		per_ann_len = max(per_ann_lens)
-		max_ann_len = max(ann_lens)
+	ann_lens = [ann.size(0) for ann in anns]
+	per_ann_lens = [cann.size(1) if cann.size(0) > 0 else 0 for cann in anns]
+	per_ann_len = max(per_ann_lens)
+	max_ann_len = max(ann_lens)
 
-		tmp = np.zeros((len(data), max_ann_len, per_ann_len))
+	tmp = np.zeros((len(data), max_ann_len, per_ann_len))
 
-		for ann_ind in range(len(anns)):
-			if ann_lens[ann_ind] != 0:
-				tmp[ann_ind,:ann_lens[ann_ind],:] = anns[ann_ind]
-		
-		anns = torch.from_numpy(tmp)
-		lengths = torch.from_numpy(np.array(ann_lens))
+	for ann_ind in range(len(anns)):
+		if ann_lens[ann_ind] != 0:
+			tmp[ann_ind,:ann_lens[ann_ind],:] = anns[ann_ind]
+	
+	anns = torch.from_numpy(tmp)
+	lengths = torch.from_numpy(np.array(ann_lens))
 
-		return imgs, anns, lengths
+	return imgs, anns, lengths
 
