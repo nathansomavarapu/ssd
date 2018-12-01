@@ -83,20 +83,20 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	cl = torch.ones((num_dbx), dtype=torch.long).to(device) * num_cats
 	cl[match_inds] = ann_cl[max_def_inds[match_inds]].long()
 
-	print(pred_cl[0])
-	print(cl[0])
-	# test = torch.zeros((1,82)).float().to(device)
-	# test[0][81] = 1
-	# print(test)
-	# print(cl_criterion(test, torch.tensor([81]).to(device)))
-	# print(cl_criterion(pred_cl[0].unsqueeze(0), torch.tensor([81]).to(device)))
-
+	test = torch.zeros((8732, 2), dtype=torch.float).to(device)
+	test[:,1] = 2.0
+	test[match_inds,0] = 1
+	# print('Theorectical min loss-ish: ' + str(cl_criterion(test, cl).sum(0).item()))
 	cl_loss = cl_criterion(pred_cl, cl)
 	cl_pos = cl_loss[cl != num_cats]
 	cl_neg = cl_loss[cl == num_cats]
-	# cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
+	cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
 	cl_loss = torch.cat([cl_pos, cl_neg], 0).sum(0)
 	
+	# print(torch.max(pred_cl, 1)[1].sum().item())
+	# print(cl_loss.item())
+	# print(N)
+	# print(loc_loss.item()/N.item(), cl_loss.item()/N.item())
 	total_loss = loc_loss + cl_loss
 	
 	return (total_loss)/N.item(), def_bxs[match_inds]
@@ -104,26 +104,28 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 def main():
 	# batch_size = 4
 	# epochs = 100
-	trainset = LocData('../data/annotations/instances_train2017.json', '../data/train2017', 'COCO', testing=False)
+	trainset = LocData('../data/annotations/instances_train2017.json', '../data/train2017', 'COCO')
 	# trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn_cust)
 
 	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 	num_cats = len(trainset.get_categories())
-	model = ssd(num_cats)
+	model = ssd(1)
 	model = model.to(device)
 
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
-	opt = optim.SGD(model.parameters(), lr=0.0001)
+	opt = optim.SGD(model.parameters(), lr=0.001)
 
-	for i in range(1000):
-		img, anns = trainset[0]
-		imgs = img.to(device).unsqueeze(0)
-		anns_gt = anns.to(device).unsqueeze(0)
+	img, anns = trainset[462]
+	imgs = img.to(device).unsqueeze(0)
+	anns_gt = anns.to(device).unsqueeze(0)
 
-		print(img.size())
-		print(anns.size())
+	# print(anns)
+
+	for i in range(320000):
+
+		opt.zero_grad()
 
 		preds = model(imgs)
 
@@ -135,14 +137,14 @@ def main():
 			if anns_gt[i].size(0) != 0:
 				ann_gt = anns_gt[i]
 				pred = (preds[0][i], preds[1][i])
-				loss, match_boxes = gen_loss(default_boxes, ann_gt, pred, device, num_cats)
+				loss, match_boxes = gen_loss(default_boxes, ann_gt, pred, device, 1)
 				if i == 0:
 					curr_mb = match_boxes
 				batch_loss += loss
 		
 		batch_loss /= 1
-		print(batch_loss)
-		opt.zero_grad()
+		# print(batch_loss)
+		
 		batch_loss.backward()
 		opt.step()
 
@@ -175,7 +177,7 @@ def main():
 	# if k % 100 == 0:
 		# print('Epoch [%d/%d], Image [%d/%d], Total Loss %f' % (e, epochs, k, len(trainloader), batch_loss.item()))
 		
-	# print(preds[0][0])
+		print(preds[0][0])
 		_, all_cl = torch.max(preds[0][0], 1)
 		all_offsets = preds[1][0]
 
@@ -185,7 +187,7 @@ def main():
 		img = (img * 255).astype(np.uint8)
 		img_pred = img.copy()
 		gts = anns_gt[0][:lens[0],:]
-		non_background_inds = (all_cl != num_cats)
+		non_background_inds = (all_cl != 1)
 
 		if all_offsets.size(0) > 0:				
 			bbx_centers = (all_offsets[:,:2] * default_boxes[:,2:].float()) + default_boxes[:,:2].float()
@@ -206,7 +208,7 @@ def main():
 				lp = (int(bbx[0].item() * img.shape[1]) , int(bbx[1].item() * img.shape[0]))
 				rp = (int(bbx[2].item() * img.shape[1]), int(bbx[3].item() * img.shape[0]))
 
-				cv2.rectangle(img_pred, (bbx[0] * img.shape[1], bbx[1]* img.shape[0]), (bbx[2] * img.shape[1], bbx[3] * img.shape[0]), (0,0,255))
+				cv2.rectangle(img_pred, lp, rp, (0,0,255))
 		
 		if curr_mb.size(0) > 0: 
 			mb_min = curr_mb[:,:2] - curr_mb[:,2:]/2.0
