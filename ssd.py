@@ -27,13 +27,25 @@ class ssd(nn.Module):
 
 
         self.cl1 = nn.Sequential(
-            nn.Conv2d(512, 4*(self.num_cl + 4), 3, padding=1),
+            nn.Conv2d(512, 4*self.num_cl, 3, padding=1),
             nn.ReLU(inplace=True)
         )
         self.layers.append(self.cl1)
 
+        self.bbx1 = nn.Sequential(
+            nn.Conv2d(512, 4 * 4, 3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        self.layers.append(self.bbx1)
+
         self.base1 = nn.Sequential(*new_layers[23:])
         # self.layers.append(self.base1)
+
+        for param in self.f1.parameters():
+            param.requires_grad = False
+        
+        for param in self.base1.parameters():
+            param.requires_grad = False
 
         # The refrence code uses a dilation of 6 which requires a padding of 6
         self.f2 = nn.Sequential(
@@ -45,10 +57,16 @@ class ssd(nn.Module):
         self.layers.append(self.f2)
 
         self.cl2 = nn.Sequential(
-            nn.Conv2d(1024, 6*(self.num_cl + 4), 3, padding=1),
+            nn.Conv2d(1024, 6 * self.num_cl, 3, padding=1),
             nn.ReLU(inplace=True)
         )
         self.layers.append(self.cl2)
+
+        self.bbx2 = nn.Sequential(
+            nn.Conv2d(1024, 6 * 4, 3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        self.layers.append(self.bbx2)
 
         self.f3 = nn.Sequential(
             nn.Conv2d(1024, 256, 1), 
@@ -59,10 +77,16 @@ class ssd(nn.Module):
         self.layers.append(self.f3)
 
         self.cl3 = nn.Sequential(
-            nn.Conv2d(512, 6*(self.num_cl + 4), 3, padding=1),
+            nn.Conv2d(512, 6 * self.num_cl, 3, padding=1),
             nn.ReLU(inplace=True)
         )
         self.layers.append(self.cl3)
+
+        self.bbx3 = nn.Sequential(
+            nn.Conv2d(512, 6 * 4, 3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        self.layers.append(self.bbx3)
 
         self.f4 = nn.Sequential(
             nn.Conv2d(512, 128, 1),
@@ -73,10 +97,16 @@ class ssd(nn.Module):
         self.layers.append(self.f4)
 
         self.cl4 = nn.Sequential(
-            nn.Conv2d(256, 6*(self.num_cl + 4), 3, padding=1),
+            nn.Conv2d(256, 6 * self.num_cl, 3, padding=1),
             nn.ReLU(inplace=True)
         )
         self.layers.append(self.cl4)
+
+        self.bbx4 = nn.Sequential(
+            nn.Conv2d(256, 6 * 4, 3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        self.layers.append(self.bbx4)
 
         self.f5 = nn.Sequential(
             nn.Conv2d(256, 128, 1),
@@ -87,10 +117,16 @@ class ssd(nn.Module):
         self.layers.append(self.f5)
 
         self.cl5 = nn.Sequential(
-            nn.Conv2d(256, 4*(self.num_cl + 4), 3, padding=1),
+            nn.Conv2d(256, 4 * self.num_cl, 3, padding=1),
             nn.ReLU(inplace=True)
         )
         self.layers.append(self.cl5)
+
+        self.bbx5 = nn.Sequential(
+            nn.Conv2d(256, 4 * 4, 3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        self.layers.append(self.bbx5)
 
         self.f6 = nn.Sequential(
             nn.Conv2d(256, 128, 1),
@@ -101,54 +137,63 @@ class ssd(nn.Module):
         self.layers.append(self.f6)
 
         self.cl6 = nn.Sequential(
-            nn.Conv2d(256, 4*(self.num_cl + 4), 3, padding=1),
+            nn.Conv2d(256, 4 * self.num_cl, 3, padding=1),
             nn.ReLU(inplace=True)
         )
         self.layers.append(self.cl6)
+
+        self.bbx6 = nn.Sequential(
+            nn.Conv2d(256, 4 * 4, 3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        self.layers.append(self.bbx6)
 
         if init_weights:
             self._init_weights()
         
     def forward(self, x):
 
+        out_cl = []
+        out_bbx = []
         
         x1 = self.f1(x)
         x1 = self.bn1(x1)
         
-        x1_2 = self.cl1(x1)
-
-        x1_2 = x1_2.view(x1_2.size(0), -1, (self.num_cl + 4))
+        out_cl.append(self.cl1(x1))
+        out_bbx.append(self.bbx1(x1))
 
         x1 = self.base1(x1)
         
         x2 = self.f2(x1)
-        x2_2 = self.cl2(x2)
 
-        x2_2 = x2_2.view(x2_2.size(0), -1, (self.num_cl + 4))
+        out_cl.append(self.cl2(x2))
+        out_bbx.append(self.bbx2(x2))
 
         x3 = self.f3(x2)
-        x3_2 = self.cl3(x3)
 
-        x3_2 = x3_2.view(x3_2.size(0), -1, (self.num_cl + 4))
+        out_cl.append(self.cl3(x3))
+        out_bbx.append(self.bbx3(x3))
 
         x4 = self.f4(x3)
-        x4_2 = self.cl4(x4)
 
-        x4_2 = x4_2.view(x4_2.size(0), -1, (self.num_cl + 4))
+        out_cl.append(self.cl4(x4))
+        out_bbx.append(self.bbx4(x4))
 
         x5 = self.f5(x4)
-        x5_2 = self.cl5(x5)
-
-        x5_2 = x5_2.view(x5_2.size(0), -1, (self.num_cl + 4))
+        
+        out_cl.append(self.cl5(x5))
+        out_bbx.append(self.bbx5(x5))
 
         x6 = self.f6(x5)
-        x6_2 = self.cl6(x6)
 
-        x6_2 = x6_2.view(x6_2.size(0), -1, (self.num_cl + 4))
+        out_cl.append(self.cl6(x6))
+        out_bbx.append(self.bbx6(x6))
 
-        preds = torch.cat([x1_2, x2_2, x3_2, x4_2, x5_2, x6_2], 1)
+        for i in range(len(out_cl)):
+            out_cl[i] = out_cl[i].permute(0,2,3,1).contiguous().view(out_cl[i].size(0), -1, self.num_cl)
+            out_bbx[i] = out_bbx[i].permute(0,2,3,1).contiguous().view(out_cl[i].size(0), -1, 4)
 
-        return preds[:,:,:self.num_cl], preds[:,:,self.num_cl:]
+        return torch.cat(out_cl, 1), torch.cat(out_bbx, 1)
     
     def _get_pboxes(self, smin=0.1, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], bmasks=[3, 5, 5, 5, 3, 3]):
         sks = [round(smin + (((smax-smin)/(len(fks)-1)) * (k-1)), 2) for k in range(1, len(fks) + 1)]
@@ -178,60 +223,44 @@ class ssd(nn.Module):
         for module in self.layers:
             for layer in module:
                 if isinstance(layer, nn.Conv2d):
-                    nn.init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
+                    nn.init.xavier_normal_(layer.weight)
                     if layer.bias is not None:
                         nn.init.constant_(layer.bias, 0)
                 elif isinstance(layer, nn.BatchNorm2d):
                     nn.init.constant_(layer.weight, 1)
                     nn.init.constant_(layer.bias, 0)
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.f1 = vgg16().features
-        self.fc1 = nn.Linear(512 * 9 * 9, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
-
-    def forward(self, x):
-        x = self.f1(x)
-        x = x.view(-1, 512 * 9 * 9)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
 
 
+# import numpy as np  
 
-import numpy as np  
-img = torch.zeros((1, 3, 300, 300))
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# img = torch.zeros((1, 3, 300, 300)).to(device)
 
-model = ssd(1)
-# model = Net()
-model = model.to(device)
+# model = ssd(1)
+# # model = Net()
+# model = model.to(device)
 
+# opt = torch.optim.SGD(filter(lambda x: x.requires_grad, model.parameters()), lr=1.0)
 
-opt = torch.optim.SGD(model.parameters(), lr=1.0)
+# cl_loss = nn.CrossEntropyLoss()
 
-cl_loss = nn.CrossEntropyLoss()
+# for i in range(1000):
 
-for i in range(1000):
+#     opt.zero_grad()
 
-    opt.zero_grad()
+#     pred = model(img)
+#     pred = pred[0][0]
 
-    pred = model(img)
-    pred = pred[0][0]
+#     print((torch.max(pred,1)[1] == 1).sum())
 
-    print((torch.max(pred,1)[1] == 1).sum())
-
-    loss = cl_loss(pred, torch.ones((pred.size(0)), dtype=torch.long))
-    print(loss)
-    loss.backward()
-    opt.step()
+#     loss = cl_loss(pred, torch.ones((pred.size(0)), dtype=torch.long).to(device))
+#     print(loss)
+#     loss.backward()
+#     opt.step()
 
 
-np.savetxt('pred.txt',pred.detach().numpy())
+# np.savetxt('pred.txt', pred.detach().cpu().numpy())
 
 
 
