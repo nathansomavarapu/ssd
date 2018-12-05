@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torchvision
 from torchvision.models import vgg16
 
@@ -13,6 +14,7 @@ class ssd(nn.Module):
 
         self.num_cl = num_cl + 1
         self.layers = []
+
 
         # TODO: Consider adding batchnorm for all layers
         new_layers = list(vgg16(pretrained=True).features)
@@ -109,8 +111,10 @@ class ssd(nn.Module):
         
     def forward(self, x):
 
+        
         x1 = self.f1(x)
         x1 = self.bn1(x1)
+        
         x1_2 = self.cl1(x1)
 
         x1_2 = x1_2.view(x1_2.size(0), -1, (self.num_cl + 4))
@@ -181,12 +185,53 @@ class ssd(nn.Module):
                     nn.init.constant_(layer.weight, 1)
                     nn.init.constant_(layer.bias, 0)
 
-        
-# img = torch.random((1, 3, 300, 300))
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        self.f1 = vgg16().features
+        self.fc1 = nn.Linear(512 * 9 * 9, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
 
-#     model = ssd(10)
-#     model = model.to(device)
+    def forward(self, x):
+        x = self.f1(x)
+        x = x.view(-1, 512 * 9 * 9)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
-# for out in model(x):
-#     print(out.size())
+
+
+import numpy as np  
+img = torch.zeros((1, 3, 300, 300))
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+model = ssd(1)
+# model = Net()
+model = model.to(device)
+
+
+opt = torch.optim.SGD(model.parameters(), lr=1.0)
+
+cl_loss = nn.CrossEntropyLoss()
+
+for i in range(1000):
+
+    opt.zero_grad()
+
+    pred = model(img)
+    pred = pred[0][0]
+
+    print((torch.max(pred,1)[1] == 1).sum())
+
+    loss = cl_loss(pred, torch.ones((pred.size(0)), dtype=torch.long))
+    print(loss)
+    loss.backward()
+    opt.step()
+
+
+np.savetxt('pred.txt',pred.detach().numpy())
+
+
+

@@ -83,9 +83,11 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	cl = torch.ones((num_dbx), dtype=torch.long).to(device) * num_cats
 	cl[match_inds] = ann_cl[max_def_inds[match_inds]].long()
 
-	test = torch.zeros((8732, 2), dtype=torch.float).to(device)
-	test[:,1] = 2.0
-	test[match_inds,0] = 1
+	print(torch.max(pred[0], 1)[1].sum())
+
+	# test = torch.zeros((8732, 2), dtype=torch.float).to(device)
+	# test[:,1] = 2.0
+	# test[match_inds,0] = 1
 	# print('Theorectical min loss-ish: ' + str(cl_criterion(test, cl).sum(0).item()))
 	cl_loss = cl_criterion(pred_cl, cl)
 	cl_pos = cl_loss[cl != num_cats]
@@ -93,10 +95,7 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
 	cl_loss = torch.cat([cl_pos, cl_neg], 0).sum(0)
 	
-	# print(torch.max(pred_cl, 1)[1].sum().item())
-	# print(cl_loss.item())
-	# print(N)
-	# print(loc_loss.item()/N.item(), cl_loss.item()/N.item())
+	
 	total_loss = loc_loss + cl_loss
 	
 	return (total_loss)/N.item(), def_bxs[match_inds]
@@ -115,6 +114,8 @@ def main():
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
+	print(list(model.parameters()))
+
 	opt = optim.SGD(model.parameters(), lr=0.001)
 
 	img, anns = trainset[462]
@@ -123,7 +124,7 @@ def main():
 
 	# print(anns)
 
-	for i in range(320000):
+	for i in range(1):
 
 		opt.zero_grad()
 
@@ -146,38 +147,11 @@ def main():
 		# print(batch_loss)
 		
 		batch_loss.backward()
+		print(pred[0])
+		print(pred[0][0].grad)
 		opt.step()
-
-	# for e in range(epochs):
-	# 	for k, data in enumerate(trainloader):
-	# 		imgs, anns_gt, lens = data
-
-	# 		imgs = imgs.to(device)
-	# 		anns_gt = anns_gt.to(device)
-	# 		lens = lens.to(device)
-
-	# 		preds = model(imgs)
-
-	# 		batch_loss = 0
-	# 		curr_mb = torch.tensor([])
-	# 		for i in range(anns_gt.size(0)):
-	# 			if lens[i] != 0:
-	# 				ann_gt = anns_gt[i][:lens[i]]
-	# 				pred = (preds[0][i], preds[1][i])
-	# 				loss, match_boxes = gen_loss(default_boxes, ann_gt, pred, lens, device, num_cats)
-	# 				if i == 0:
-	# 					curr_mb = match_boxes
-	# 				batch_loss += loss
-			
-	# 		batch_loss /= batch_size
-	# 		opt.zero_grad()
-	# 		batch_loss.backward()
-	# 		opt.step()
-
-	# if k % 100 == 0:
-		# print('Epoch [%d/%d], Image [%d/%d], Total Loss %f' % (e, epochs, k, len(trainloader), batch_loss.item()))
 		
-		print(preds[0][0])
+		# print(preds[0][0])
 		_, all_cl = torch.max(preds[0][0], 1)
 		all_offsets = preds[1][0]
 
