@@ -83,19 +83,12 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	cl = torch.ones((num_dbx), dtype=torch.long).to(device) * num_cats
 	cl[match_inds] = ann_cl[max_def_inds[match_inds]].long()
 
-	print(torch.max(pred[0], 1)[1].sum())
-
-	# test = torch.zeros((8732, 2), dtype=torch.float).to(device)
-	# test[:,1] = 2.0
-	# test[match_inds,0] = 1
-	# print('Theorectical min loss-ish: ' + str(cl_criterion(test, cl).sum(0).item()))
 	cl_loss = cl_criterion(pred_cl, cl)
 	cl_pos = cl_loss[cl != num_cats]
 	cl_neg = cl_loss[cl == num_cats]
 	cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
 	cl_loss = torch.cat([cl_pos, cl_neg], 0).sum(0)
-	
-	
+
 	total_loss = loc_loss + cl_loss
 	
 	return (total_loss)/N.item(), def_bxs[match_inds]
@@ -114,9 +107,7 @@ def main():
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
-	print(list(model.parameters()))
-
-	opt = optim.SGD(model.parameters(), lr=0.001)
+	opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 	img, anns = trainset[462]
 	imgs = img.to(device).unsqueeze(0)
@@ -124,7 +115,7 @@ def main():
 
 	# print(anns)
 
-	for i in range(1):
+	for i in range(100):
 
 		opt.zero_grad()
 

@@ -16,25 +16,21 @@ class ssd(nn.Module):
         self.layers = []
 
 
-        # TODO: Consider adding batchnorm for all layers
         new_layers = list(vgg16(pretrained=True).features)
         new_layers[16] = nn.MaxPool2d(2, ceil_mode=True)
         new_layers[-1] = nn.MaxPool2d(3, 1, padding=1)
 
         self.f1 = nn.Sequential(*new_layers[:23])
-        # TODO: Change this to L2 Layer.
         self.bn1 = nn.BatchNorm2d(512)
 
 
         self.cl1 = nn.Sequential(
-            nn.Conv2d(512, 4*self.num_cl, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(512, 4*self.num_cl, 3, padding=1)
         )
         self.layers.append(self.cl1)
 
         self.bbx1 = nn.Sequential(
-            nn.Conv2d(512, 4 * 4, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(512, 4 * 4, 3, padding=1)
         )
         self.layers.append(self.bbx1)
 
@@ -57,14 +53,12 @@ class ssd(nn.Module):
         self.layers.append(self.f2)
 
         self.cl2 = nn.Sequential(
-            nn.Conv2d(1024, 6 * self.num_cl, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(1024, 6 * self.num_cl, 3, padding=1)
         )
         self.layers.append(self.cl2)
 
         self.bbx2 = nn.Sequential(
-            nn.Conv2d(1024, 6 * 4, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(1024, 6 * 4, 3, padding=1)
         )
         self.layers.append(self.bbx2)
 
@@ -77,14 +71,12 @@ class ssd(nn.Module):
         self.layers.append(self.f3)
 
         self.cl3 = nn.Sequential(
-            nn.Conv2d(512, 6 * self.num_cl, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(512, 6 * self.num_cl, 3, padding=1)
         )
         self.layers.append(self.cl3)
 
         self.bbx3 = nn.Sequential(
-            nn.Conv2d(512, 6 * 4, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(512, 6 * 4, 3, padding=1)
         )
         self.layers.append(self.bbx3)
 
@@ -97,14 +89,12 @@ class ssd(nn.Module):
         self.layers.append(self.f4)
 
         self.cl4 = nn.Sequential(
-            nn.Conv2d(256, 6 * self.num_cl, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(256, 6 * self.num_cl, 3, padding=1)
         )
         self.layers.append(self.cl4)
 
         self.bbx4 = nn.Sequential(
-            nn.Conv2d(256, 6 * 4, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(256, 6 * 4, 3, padding=1)
         )
         self.layers.append(self.bbx4)
 
@@ -117,14 +107,12 @@ class ssd(nn.Module):
         self.layers.append(self.f5)
 
         self.cl5 = nn.Sequential(
-            nn.Conv2d(256, 4 * self.num_cl, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(256, 4 * self.num_cl, 3, padding=1)
         )
         self.layers.append(self.cl5)
 
         self.bbx5 = nn.Sequential(
-            nn.Conv2d(256, 4 * 4, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(256, 4 * 4, 3, padding=1)
         )
         self.layers.append(self.bbx5)
 
@@ -137,14 +125,12 @@ class ssd(nn.Module):
         self.layers.append(self.f6)
 
         self.cl6 = nn.Sequential(
-            nn.Conv2d(256, 4 * self.num_cl, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(256, 4 * self.num_cl, 3, padding=1)
         )
         self.layers.append(self.cl6)
 
         self.bbx6 = nn.Sequential(
-            nn.Conv2d(256, 4 * 4, 3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(256, 4 * 4, 3, padding=1)
         )
         self.layers.append(self.bbx6)
 
@@ -190,8 +176,8 @@ class ssd(nn.Module):
         out_bbx.append(self.bbx6(x6))
 
         for i in range(len(out_cl)):
-            out_cl[i] = out_cl[i].permute(0,2,3,1).contiguous().view(out_cl[i].size(0), -1, self.num_cl)
-            out_bbx[i] = out_bbx[i].permute(0,2,3,1).contiguous().view(out_cl[i].size(0), -1, 4)
+            out_cl[i] = out_cl[i].permute(0,2,3,1).contiguous().view(out_cl[i].size(0), -1).view(out_cl[i].size(0), -1, self.num_cl)
+            out_bbx[i] = out_bbx[i].permute(0,2,3,1).contiguous().view(out_cl[i].size(0), -1).view(out_cl[i].size(0), -1, 4)
 
         return torch.cat(out_cl, 1), torch.cat(out_bbx, 1)
     
@@ -230,8 +216,6 @@ class ssd(nn.Module):
                     nn.init.constant_(layer.weight, 1)
                     nn.init.constant_(layer.bias, 0)
 
-
-
 # import numpy as np  
 
 # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -245,7 +229,7 @@ class ssd(nn.Module):
 
 # cl_loss = nn.CrossEntropyLoss()
 
-# for i in range(1000):
+# for i in range(500):
 
 #     opt.zero_grad()
 
