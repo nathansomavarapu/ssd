@@ -80,12 +80,12 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	loc_loss = loc_loss.sum(0)
 
 	cl_criterion = nn.CrossEntropyLoss(reduce=False)
-	cl = torch.ones((num_dbx), dtype=torch.long).to(device) * num_cats
+	cl = torch.zeros((num_dbx), dtype=torch.long).to(device)
 	cl[match_inds] = ann_cl[max_def_inds[match_inds]].long()
 
 	cl_loss = cl_criterion(pred_cl, cl)
-	cl_pos = cl_loss[cl != num_cats]
-	cl_neg = cl_loss[cl == num_cats]
+	cl_pos = cl_loss[cl != 0]
+	cl_neg = cl_loss[cl == 0]
 	cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
 	cl_loss = torch.cat([cl_pos, cl_neg], 0).sum(0)
 
@@ -138,8 +138,6 @@ def main():
 		# print(batch_loss)
 		
 		batch_loss.backward()
-		print(pred[0])
-		print(pred[0][0].grad)
 		opt.step()
 		
 		# print(preds[0][0])
@@ -152,7 +150,7 @@ def main():
 		img = (img * 255).astype(np.uint8)
 		img_pred = img.copy()
 		gts = anns_gt[0][:lens[0],:]
-		non_background_inds = (all_cl != 1)
+		non_background_inds = (all_cl != 0)
 
 		if all_offsets.size(0) > 0:				
 			bbx_centers = (all_offsets[:,:2] * default_boxes[:,2:].float()) + default_boxes[:,:2].float()

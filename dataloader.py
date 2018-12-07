@@ -47,9 +47,10 @@ class LocData(Dataset):
 			self.coco_cats = []
 			self.cat_renum_dict = {}
 
+			self.coco_cats.append('None')
 			for i, cat_dict in enumerate(self.coco.dataset['categories']):
 				self.coco_cats.append(cat_dict['name'])
-				self.cat_renum_dict[cat_dict['id']] = i
+				self.cat_renum_dict[cat_dict['id']] = i + 1
 			
 			self.coco_cats.append('None')
 
