@@ -163,7 +163,7 @@ class LocData(Dataset):
 
 			cv2.imwrite('img_w_anns.png', img_old)
 
-		ann_repr = torch.tensor(ann_repr)
+		ann_repr = torch.tensor(ann_repr, dtype=torch.float)
 		return (img, ann_repr)
 	
 	def get_categories(self):
@@ -179,14 +179,13 @@ def collate_fn_cust(data):
 	per_ann_len = max(per_ann_lens)
 	max_ann_len = max(ann_lens)
 
-	tmp = np.zeros((len(data), max_ann_len, per_ann_len))
+	anns_t = torch.zeros((len(data), max_ann_len, per_ann_len), dtype=torch.float)
 
 	for ann_ind in range(len(anns)):
 		if ann_lens[ann_ind] != 0:
-			tmp[ann_ind,:ann_lens[ann_ind],:] = anns[ann_ind]
+			anns_t[ann_ind,:ann_lens[ann_ind],:] = anns[ann_ind]
 	
-	anns = torch.from_numpy(tmp)
 	lengths = torch.from_numpy(np.array(ann_lens))
 
-	return imgs, anns, lengths
+	return imgs, anns_t, lengths
 

@@ -37,12 +37,6 @@ class ssd(nn.Module):
         self.base1 = nn.Sequential(*new_layers[23:])
         # self.layers.append(self.base1)
 
-        for param in self.f1.parameters():
-            param.requires_grad = False
-        
-        for param in self.base1.parameters():
-            param.requires_grad = False
-
         # The refrence code uses a dilation of 6 which requires a padding of 6
         self.f2 = nn.Sequential(
             nn.Conv2d(512, 1024, 3, dilation=3, padding=3),
@@ -245,6 +239,3 @@ class ssd(nn.Module):
 
 
 # np.savetxt('pred.txt', pred.detach().cpu().numpy())
-
-
-
