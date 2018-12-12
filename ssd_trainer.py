@@ -97,12 +97,13 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	return loc_loss, cl_loss, def_bxs[match_inds]
 
 def main():
-	batch_size = 32
+	batch_size = 16
 	epochs = 200
-	trainset = LocData('../data/annotations/instances_train2017.json', '../data/train2017', 'COCO')
+	# trainset = LocData('../data/annotations2017/instances_train2017.json', '../data/train2017', 'COCO')
+	trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
 	trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn_cust)
 
-	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+	device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 	num_cats = len(trainset.get_categories())
 	model = ssd(num_cats)
 	model = model.to(device)
@@ -131,18 +132,20 @@ def main():
 			preds = model(imgs)
 
 			batch_loss = 0
+			total_loc_loss = 0
+			total_conf_loss = 0
 			curr_mb = torch.tensor([])
 			for i in range(anns_gt.size(0)):
 				if anns_gt[:lens[i],:].size(0) != 0:
 					ann_gt = anns_gt[i][:lens[i],:]
 					pred = (preds[0][i], preds[1][i])
 					loc_loss, cl_loss, match_boxes = gen_loss(default_boxes, ann_gt, pred, device, num_cats)
-					loss = loc_loss + cl_loss
+					total_loc_loss += loc_loss 
+					total_conf_loss += cl_loss
 					if i == 0:
 						curr_mb = match_boxes
-					batch_loss += loss
 			
-			batch_loss /= anns_gt.size(0)
+			batch_loss = (total_loc_loss + total_conf_loss) / anns_gt.size(0)
 			
 			batch_loss.backward()
 			opt.step()
@@ -161,7 +164,16 @@ def main():
 				non_background_inds = (all_cl != 0)
 
 				nnb = torch.sum(non_background_inds).item()
-				print('Epoch [%d/%d], Image [%d/%d], Total Loss %f, Number of class boxes: %d' % (e, epochs, k, len(trainloader), batch_loss.item(), nnb))
+				nnb_cls = torch.unique(all_cl[non_background_inds]).cpu().numpy()
+
+				print('')
+				print('Epoch [%d/%d], Image [%d/%d]' % (e, epochs, k, len(trainloader)))
+				print('Loc. Loss: %f, Conf. Loss: %f, Total Loss %f, ' % (total_conf_loss, total_loc_loss, batch_loss.item()))
+				print('Number of class boxes: %d, Number of Annotations: %d' % (nnb, gts.size(0)))
+				print('Classes Predicted: ')
+				print(nnb_cls)
+				print('')
+
 				if all_offsets.size(0) > 0 and nnb > 0:				
 					bbx_centers = (all_offsets[:,:2] * default_boxes[:,2:].float()) + default_boxes[:,:2].float()
 					bbx_widths = torch.exp(all_offsets[:,2:]) * default_boxes[:,2:].float()
