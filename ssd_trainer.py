@@ -91,13 +91,14 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
 	cl_loss = torch.cat([cl_pos, cl_neg], 0).sum(0)
 
-	total_loss = loc_loss + cl_loss
+	loc_loss = loc_loss/N.item()
+	cl_loss = cl_loss/N.item()
 	
-	return (total_loss)/N.item(), def_bxs[match_inds]
+	return loc_loss, cl_loss, def_bxs[match_inds]
 
 def main():
-	batch_size = 16
-	epochs = 100
+	batch_size = 32
+	epochs = 200
 	trainset = LocData('../data/annotations/instances_train2017.json', '../data/train2017', 'COCO')
 	trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn_cust)
 
@@ -110,6 +111,7 @@ def main():
 	default_boxes = default_boxes.to(device)
 
 	opt = optim.SGD(model.parameters(), lr=0.002, momentum=0.9, weight_decay=0.0005)
+	scheduler = optim.lr_scheduler.MultiStepLR(opt, milestones=[360000, 400000, 440000], gamma=0.1)
 	# opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 	# img, anns = trainset[462]
@@ -118,6 +120,8 @@ def main():
 
 	for e in range(epochs):
 		for k, data in enumerate(trainloader):
+
+			scheduler.step()
 
 			imgs, anns_gt, lens = data
 			imgs = imgs.to(device)
@@ -132,7 +136,8 @@ def main():
 				if anns_gt[:lens[i],:].size(0) != 0:
 					ann_gt = anns_gt[i][:lens[i],:]
 					pred = (preds[0][i], preds[1][i])
-					loss, match_boxes = gen_loss(default_boxes, ann_gt, pred, device, num_cats)
+					loc_loss, cl_loss, match_boxes = gen_loss(default_boxes, ann_gt, pred, device, num_cats)
+					loss = loc_loss + cl_loss
 					if i == 0:
 						curr_mb = match_boxes
 					batch_loss += loss
@@ -204,6 +209,8 @@ def main():
 				
 				cv2.imwrite('anns_def.png', img)
 				cv2.imwrite('anns_pred.png', img_pred)
+
+				torch.save(model.state_dict(), 'ssd.pt')
 			
 
 if __name__ == '__main__':
