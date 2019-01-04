@@ -70,24 +70,21 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 
 	N = torch.sum(match_inds)
 
-	diff_c = (g[:,:2] - def_bxs.float()[:,:2])/def_bxs.float()[:,2:]
-	diff_wh = torch.log(g[:,2:]/def_bxs[:,2:])
+	diff_c = (g[:,:2] - def_bxs.float()[:,:2])/(def_bxs.float()[:,2:] * 0.1)
+	diff_wh = torch.log(g[:,2:]/def_bxs[:,2:])/(0.2)
 	gt = torch.cat([diff_c, diff_wh], 1)
 
 	loc_criterion = nn.SmoothL1Loss(reduce=False)
-	loc_loss = loc_criterion(pred_reg[match_inds], gt[match_inds])
-	loc_loss = loc_loss.sum(1)
-	loc_loss = loc_loss.sum(0)
+	loc_loss = loc_criterion(pred_reg[match_inds], gt[match_inds]).sum().sum()
 
 	cl_criterion = nn.CrossEntropyLoss(reduce=False)
 	cl = torch.zeros((num_dbx), dtype=torch.long).to(device)
 	cl[match_inds] = ann_cl[max_def_inds[match_inds]].long()
-
+	
 	cl_loss = cl_criterion(pred_cl, cl)
 	cl_pos = cl_loss[cl != 0]
 	cl_neg = cl_loss[cl == 0]
 
-	# print(cl_pos.size())
 	cl_neg = torch.topk(cl_neg, N.item() * 3)[0]
 	cl_loss = torch.cat([cl_pos, cl_neg], 0).sum(0)
 
@@ -105,19 +102,30 @@ def main():
 
 	device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 	num_cats = len(trainset.get_categories())
-	model = ssd(num_cats)
+	model = ssd(num_cats, init_weights=True)
 	model = model.to(device)
 
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
-	opt = optim.SGD(model.parameters(), lr=0.002, momentum=0.9, weight_decay=0.0005)
+	opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, weight_decay=0.0005)
 	scheduler = optim.lr_scheduler.MultiStepLR(opt, milestones=[360000, 400000, 440000], gamma=0.1)
 	# opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-	# img, anns = trainset[462]
+	# img, anns = trainset[3]
 	# imgs = img.to(device).unsqueeze(0)
 	# anns_gt = anns.to(device).unsqueeze(0)
+
+	# img_np = img.data.cpu().numpy()
+	# img_np = np.transpose(img_np, (1,2,0))
+	# img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+	# img_np = (img_np * 255).astype(np.uint8)
+	# cv2.imwrite('test.png', img_np)
+
+	# preds = model(imgs)
+	# pred = (preds[0][0], preds[1][0])
+
+	# loc_loss, cl_loss, match_boxes = gen_loss(default_boxes, anns_gt[0], pred, device, num_cats)
 
 	for e in range(epochs):
 		for k, data in enumerate(trainloader):
@@ -168,15 +176,15 @@ def main():
 
 				print('')
 				print('Epoch [%d/%d], Image [%d/%d]' % (e, epochs, k, len(trainloader)))
-				print('Loc. Loss: %f, Conf. Loss: %f, Total Loss %f, ' % (total_conf_loss, total_loc_loss, batch_loss.item()))
-				print('Number of class boxes: %d, Number of Annotations: %d' % (nnb, gts.size(0)))
+				print('Loc. Loss: %f, Conf. Loss: %f, Total Loss %f, ' % (total_loc_loss, total_conf_loss, batch_loss.item()))
+				print('Number of class boxes: %d, Number of Annotations: %d, Number of Match Boxes: %d' % (nnb, gts.size(0), match_boxes.size(0)))
 				print('Classes Predicted: ')
 				print(nnb_cls)
 				print('')
 
 				if all_offsets.size(0) > 0 and nnb > 0:				
-					bbx_centers = (all_offsets[:,:2] * default_boxes[:,2:].float()) + default_boxes[:,:2].float()
-					bbx_widths = torch.exp(all_offsets[:,2:]) * default_boxes[:,2:].float()
+					bbx_centers = (all_offsets[:,:2] * default_boxes[:,2:].float() * 0.1) + default_boxes[:,:2].float()
+					bbx_widths = torch.exp(all_offsets[:,2:] * 0.2) * default_boxes[:,2:].float()
 
 					bbx_cf = torch.cat([bbx_centers, bbx_widths], 1)
 					bbx_cf = bbx_cf[non_background_inds]

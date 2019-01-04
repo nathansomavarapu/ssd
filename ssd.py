@@ -14,6 +14,7 @@ class ssd(nn.Module):
 
         self.num_cl = num_cl + 1
         self.layers = []
+        self.vgg_layers = []
 
 
         new_layers = list(vgg16(pretrained=True).features)
@@ -22,6 +23,8 @@ class ssd(nn.Module):
 
         self.f1 = nn.Sequential(*new_layers[:23])
         self.bn1 = nn.BatchNorm2d(512)
+
+        self.vgg_layers.append(self.f1)
 
 
         self.cl1 = nn.Sequential(
@@ -35,7 +38,7 @@ class ssd(nn.Module):
         self.layers.append(self.bbx1)
 
         self.base1 = nn.Sequential(*new_layers[23:])
-        # self.layers.append(self.base1)
+        self.vgg_layers.append(self.base1)
 
         # The refrence code uses a dilation of 6 which requires a padding of 6
         self.f2 = nn.Sequential(
@@ -129,7 +132,7 @@ class ssd(nn.Module):
         self.layers.append(self.bbx6)
 
         if init_weights:
-            self._init_weights()
+            self._init_weights(vgg_16_init=(not init_weights))
         
     def forward(self, x):
 
@@ -198,7 +201,7 @@ class ssd(nn.Module):
         boxes = torch.tensor(np.array(boxes)).float()
         return torch.clamp(boxes, max=1.0)
     
-    def _init_weights(self):
+    def _init_weights(self, vgg_16_init=False):
 
         for module in self.layers:
             for layer in module:
@@ -209,6 +212,19 @@ class ssd(nn.Module):
                 elif isinstance(layer, nn.BatchNorm2d):
                     nn.init.constant_(layer.weight, 1)
                     nn.init.constant_(layer.bias, 0)
+            
+            if vgg_16_init:
+                for module in self.vgg_layers:
+                    for layer in module:
+                        if isinstance(layer, nn.Conv2d):
+                            nn.init.xavier_normal_(layer.weight)
+                            if layer.bias is not None:
+                                nn.init.constant_(layer.bias, 0)
+                        elif isinstance(layer, nn.BatchNorm2d):
+                            nn.init.constant_(layer.weight, 1)
+                            nn.init.constant_(layer.bias, 0)
+
+
 
 # import numpy as np  
 
