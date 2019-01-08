@@ -42,8 +42,8 @@ class LocData(Dataset):
 			nf.close()
 		elif self.data_type == 'COCO':
 			self.coco=COCO(ann_path)
-			# self.imgs = sorted(self.coco.getImgIds())
-			self.imgs = sorted(self.coco.getImgIds())[3:4]
+			self.imgs = sorted(self.coco.getImgIds())
+			# self.imgs = sorted(self.coco.getImgIds())[3:4]
 			self.img_path = img_path
 			self.coco_cats = []
 			self.cat_renum_dict = {}

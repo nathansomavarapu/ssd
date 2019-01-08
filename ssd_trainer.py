@@ -94,7 +94,7 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	return loc_loss, cl_loss, def_bxs[match_inds]
 
 def main():
-	batch_size = 16
+	batch_size = 32
 	epochs = 200
 	# trainset = LocData('../data/annotations2017/instances_train2017.json', '../data/train2017', 'COCO')
 	trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
@@ -112,20 +112,6 @@ def main():
 	scheduler = optim.lr_scheduler.MultiStepLR(opt, milestones=[360000, 400000, 440000], gamma=0.1)
 	# opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-	# img, anns = trainset[3]
-	# imgs = img.to(device).unsqueeze(0)
-	# anns_gt = anns.to(device).unsqueeze(0)
-
-	# img_np = img.data.cpu().numpy()
-	# img_np = np.transpose(img_np, (1,2,0))
-	# img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-	# img_np = (img_np * 255).astype(np.uint8)
-	# cv2.imwrite('test.png', img_np)
-
-	# preds = model(imgs)
-	# pred = (preds[0][0], preds[1][0])
-
-	# loc_loss, cl_loss, match_boxes = gen_loss(default_boxes, anns_gt[0], pred, device, num_cats)
 
 	for e in range(epochs):
 		for k, data in enumerate(trainloader):
