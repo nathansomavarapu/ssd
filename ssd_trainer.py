@@ -15,8 +15,6 @@ import numpy as np
 
 import os
 
-# TODO: Change this to perform tensor operations.
-# This is going to need to be done one image at a time, batches wont work, uneven num_objs
 def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 
 	pred_cl = pred[0]
@@ -96,7 +94,7 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	return loc_loss, cl_loss, def_bxs[match_inds]
 
 def main():
-	batch_size = 2
+	batch_size = 16
 	epochs = 200
 	# trainset = LocData('../data/annotations2017/instances_train2017.json', '../data/train2017', 'COCO')
 	trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
@@ -112,7 +110,7 @@ def main():
 	default_boxes = model._get_pboxes()
 	default_boxes = default_boxes.to(device)
 
-	opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, weight_decay=0.0005)
+	opt = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=0.0005)
 	scheduler = optim.lr_scheduler.MultiStepLR(opt, milestones=[360000, 400000, 440000], gamma=0.1)
 	# opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
@@ -191,6 +189,7 @@ def main():
 
 						cv2.rectangle(img_pred, lp, rp, (0,0,255))
 				
+				# curr_mb = default_boxes[(722+19)*4:(722+19)*4+4]
 				if curr_mb.size(0) > 0: 
 					mb_min = curr_mb[:,:2] - curr_mb[:,2:]/2.0
 					mb_max = curr_mb[:,:2] + curr_mb[:,2:]/2.0
@@ -221,8 +220,8 @@ def main():
 				cv2.imwrite('anns_pred.png', img_pred)
 
 				torch.save(model.state_dict(), 'ssd.pt')
-				break
-		break			
+				
+					
 
 if __name__ == '__main__':
 	main()

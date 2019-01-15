@@ -52,8 +52,6 @@ class LocData(Dataset):
 			for i, cat_dict in enumerate(self.coco.dataset['categories']):
 				self.coco_cats.append(cat_dict['name'])
 				self.cat_renum_dict[cat_dict['id']] = i + 1
-			
-			self.coco_cats.append('None')
 
 
 		elif self.data_type == 'YOLO':
