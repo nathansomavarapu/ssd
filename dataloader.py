@@ -151,8 +151,6 @@ class LocData(Dataset):
 		img = torch.from_numpy(img.transpose(2,0,1)).float()
 		
 		if self.testing:
-			# print(img_f)
-			# print(np.array(ann_repr)[:,0])
 			img_h, img_w = img_old.shape[:2]
 			for ann in ann_repr:
 				point1 = (int((ann[1] - ann[3]/2.0) * img_w), int((ann[2] - ann[4]/2.0) * img_h))
