@@ -178,7 +178,7 @@ class ssd(nn.Module):
 
         return torch.cat(out_cl, 1), torch.cat(out_bbx, 1)
     
-    def _get_pboxes(self, smin=0.1, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], bmasks=[3, 5, 5, 5, 3, 3]):
+    def _get_pboxes(self, smin=0.15, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], bmasks=[3, 5, 5, 5, 3, 3]):
         sks = [round(smin + (((smax-smin)/(len(fks)-1)) * (k-1)), 2) for k in range(1, len(fks) + 1)]
 
         boxes = []

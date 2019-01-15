@@ -13,6 +13,8 @@ import torch.optim as optim
 import cv2
 import numpy as np
 
+import os
+
 # TODO: Change this to perform tensor operations.
 # This is going to need to be done one image at a time, batches wont work, uneven num_objs
 def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
@@ -94,15 +96,17 @@ def gen_loss(def_bxs, ann_bxs, pred, device, num_cats, thresh=0.5):
 	return loc_loss, cl_loss, def_bxs[match_inds]
 
 def main():
-	batch_size = 32
+	batch_size = 2
 	epochs = 200
 	# trainset = LocData('../data/annotations2017/instances_train2017.json', '../data/train2017', 'COCO')
 	trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
 	trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn_cust)
 
-	device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+	device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 	num_cats = len(trainset.get_categories())
 	model = ssd(num_cats, init_weights=True)
+	if os.path.exists('ssd.pt'):
+		model.load_state_dict(torch.load('ssd.pt'))
 	model = model.to(device)
 
 	default_boxes = model._get_pboxes()
@@ -163,7 +167,7 @@ def main():
 				print('')
 				print('Epoch [%d/%d], Image [%d/%d]' % (e, epochs, k, len(trainloader)))
 				print('Loc. Loss: %f, Conf. Loss: %f, Total Loss %f, ' % (total_loc_loss, total_conf_loss, batch_loss.item()))
-				print('Number of class boxes: %d, Number of Annotations: %d, Number of Match Boxes: %d' % (nnb, gts.size(0), match_boxes.size(0)))
+				print('Number of class boxes: %d, Number of Annotations: %d, Number of Match Boxes: %d' % (nnb, gts.size(0), curr_mb.size(0)))
 				print('Classes Predicted: ')
 				print(nnb_cls)
 				print('')
@@ -217,7 +221,8 @@ def main():
 				cv2.imwrite('anns_pred.png', img_pred)
 
 				torch.save(model.state_dict(), 'ssd.pt')
-			
+				break
+		break			
 
 if __name__ == '__main__':
 	main()
