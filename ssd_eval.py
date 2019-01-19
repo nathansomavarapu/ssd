@@ -120,6 +120,8 @@ if __name__ == "__main__":
                     rp = (int(bbx[2].item() * img.shape[1]), int(bbx[3].item() * img.shape[0]))
 
                     cv2.rectangle(img_pred, lp, rp, (0,0,255))
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    cv2.putText(img_pred, testset.coco_cats[cl], (lp[0] - 5, lp[1] - 5), font, 1, (244,66,143), 2)
 
         # if gts.size(0) > 0:
         #     gts_cl = gts[:,0].unsqueeze(1)
