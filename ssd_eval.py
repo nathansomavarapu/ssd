@@ -29,6 +29,7 @@ def nms(boxes, sorted_ind, nms_thresh):
         keep_ctr += 1
 
         curr_bbx = boxes[sorted_ind[0]]
+        boxes = boxes[sorted_ind]
         curr_bbx = curr_bbx.expand_as(boxes)
         
         inter_maxs = torch.min(curr_bbx[:,2:], boxes[:,2:])
@@ -62,7 +63,7 @@ if __name__ == "__main__":
     default_boxes = model._get_pboxes()
     default_boxes = default_boxes.to(device)
 
-    img, anns = testset[4]
+    img, anns = testset[7]
     img = img.to(device).unsqueeze(0)
     anns = anns.to(device).unsqueeze(0)
     with torch.no_grad():
