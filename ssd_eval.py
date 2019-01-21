@@ -15,7 +15,7 @@ import numpy as np
 
 import os
 
-topk = 10
+topk = 100
 
 # Did this in numpy previously, torch verion adapted from Fransisco Massa's orginal nms code.
 def nms(boxes, sorted_ind, nms_thresh):
@@ -27,13 +27,13 @@ def nms(boxes, sorted_ind, nms_thresh):
 
         keep[keep_ctr] = sorted_ind[0]
         keep_ctr += 1
-
-        curr_bbx = boxes[sorted_ind[0]]
-        boxes = boxes[sorted_ind]
-        curr_bbx = curr_bbx.expand_as(boxes)
         
-        inter_maxs = torch.min(curr_bbx[:,2:], boxes[:,2:])
-        inter_mins = torch.max(curr_bbx[:,:2], boxes[:,:2])
+        curr_bbx = boxes[sorted_ind[0]]
+        curr_boxes = boxes[sorted_ind]
+        curr_bbx = curr_bbx.expand_as(curr_boxes)
+        
+        inter_maxs = torch.min(curr_bbx[:,2:], curr_boxes[:,2:])
+        inter_mins = torch.max(curr_bbx[:,:2], curr_boxes[:,:2])
 
         diff = (inter_maxs - inter_mins).clamp(min=0.0)
         intersect = diff[:,0] * diff[:,1]
@@ -41,7 +41,7 @@ def nms(boxes, sorted_ind, nms_thresh):
         area_a = curr_bbx[:,2:] - curr_bbx[:,:2]
         area_a = area_a[:,0] * area_a[:,1]
 
-        area_b = boxes[:,2:] - boxes[:,:2]
+        area_b = curr_boxes[:,2:] - curr_boxes[:,:2]
         area_b = area_b[:,0] * area_b[:,1]
 
         iou = intersect / (area_a + area_b - intersect)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     default_boxes = model._get_pboxes()
     default_boxes = default_boxes.to(device)
 
-    img, anns = testset[7]
+    img, anns = testset[12]
     img = img.to(device).unsqueeze(0)
     anns = anns.to(device).unsqueeze(0)
     with torch.no_grad():
@@ -83,9 +83,10 @@ if __name__ == "__main__":
         img_pred = img.copy()
         gts = anns[0]
 
-        if all_offsets.size(0) > 0:	
+        
+        non_background_inds = all_cl.nonzero().squeeze()
 
-            non_background_inds = all_cl.nonzero().squeeze()
+        if non_background_inds.size(0) > 0:
 
             nnb_cls = torch.unique(all_cl[non_background_inds])
 
@@ -115,8 +116,7 @@ if __name__ == "__main__":
                 keep_inds, keep_num = nms(curr_boxes, s_ordered_cl_inds, 0.5)
                 bbxs_pred_nms = curr_boxes[keep_inds[:keep_num]]
 
-                for i in range(bbxs_pred_nms.size(0)):
-                    bbx = bbxs_pred[i,:]
+                for bbx in bbxs_pred_nms:
                     lp = (int(bbx[0].item() * img.shape[1]) , int(bbx[1].item() * img.shape[0]))
                     rp = (int(bbx[2].item() * img.shape[1]), int(bbx[3].item() * img.shape[0]))
 
