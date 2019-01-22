@@ -14,11 +14,11 @@ from ssd import ssd
 def main():
 
     epochs = 250
-    batch_size = 1
+    batch_size = 32
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages',
-                       'VOC', name_path='../data/VOC2007/classes.txt')
+    # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
+    trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages', 'VOC', name_path='../data/VOC2007/classes.txt')
     dataloader = DataLoader(trainset, batch_size=batch_size,
                             shuffle=True, collate_fn=collate_fn_cust)
 
@@ -42,24 +42,21 @@ def main():
 
             classification_loss = 0
             localization_loss = 0
-            num_predictions = predicted_classes.size(0)
+            assert batch_size == predicted_classes.size(0)
 
-            for j in range(num_predictions):
+            for j in range(batch_size):
                 current_classes = predicted_classes[j]
                 current_offsets = predicted_offsets[j]
                 annotations_classes = annotations[j][:lens[j]][:, 0]
                 annotations_boxes = annotations[j][:lens[j]][:, 1:5]
 
                 curr_cl_loss, curr_loc_loss = utils.compute_loss(
-                    default_boxes, annotations_classes, annotations_boxes, current_classes, current_offsets, device=device)
+                    default_boxes, annotations_classes, annotations_boxes, current_classes, current_offsets)
                 classification_loss += curr_cl_loss
                 localization_loss += curr_loc_loss
 
-            classification_loss, localization_loss = utils.compute_loss(
-                default_boxes, annotations, predicted_classes, predicted_offsets, device=device)
-
-            # localization_loss = localization_loss / num_predictions
-            # classification_loss = classification_loss / num_predictions
+            localization_loss = localization_loss / batch_size
+            classification_loss = classification_loss / batch_size
             total_loss = localization_loss + classification_loss
 
             optimizer.zero_grad()

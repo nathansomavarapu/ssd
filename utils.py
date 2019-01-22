@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.functional as F
 
 import numpy as np
@@ -141,20 +142,97 @@ def get_dboxes(smin=0.07, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19
     boxes = torch.tensor(boxes).float()
     return torch.clamp(boxes, max=1.0)
 
+def expand_defaults_and_annotations(default_boxes, annotations_boxes):
 
-def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicted_classes, predicted_offsets, match_thresh=0.5, device=None):
-    
-    num_dboxes = default_boxes.size(0)
-    num_annotations = annotations_classes.size(0)
+    num_annotations = annotations_boxes.size(0)
+
+    default_boxes = default_boxes.unsqueeze(0)
+    default_boxes = default_boxes.expand(num_annotations, -1, -1)
+
+    annotations_boxes = annotations_boxes.unsqueeze(1)
+    annotations_boxes = annotations_boxes.expand_as(default_boxes)
+
+    return default_boxes, annotations_boxes
+
+def match(default_boxes, annotations_boxes, match_thresh):
+
+    num_annotations = annotations_boxes.size(0)
 
     default_boxes_pt = center_to_points(default_boxes)
-    default_boxes_pt = default_boxes_pt.unsqueeze(0)
-    default_boxes_pt = default_boxes_pt.expand(num_annotations, -1, -1)
-
     annotations_boxes_pt = center_to_points(annotations_boxes)
-    annotations_boxes_pt = annotations_boxes_pt.unsqueeze(1)
-    annotations_boxes_pt = annotations_boxes_pt.expand_as(default_boxes_pt)
+
+    default_boxes_pt, annotations_boxes_pt = expand_defaults_and_annotations(default_boxes_pt, annotations_boxes_pt)
 
     ious = iou(default_boxes_pt, annotations_boxes_pt)
 
+    _, annotation_with_box = torch.max(ious, 1)
+    annotation_inds = torch.arange(num_annotations, dtype=torch.long).to(annotation_with_box.device)
+    
+    ious_max, box_with_annotation = torch.max(ious, 0)
+    matched_boxes_bin = (ious_max >= match_thresh)
+    matched_boxes_bin[annotation_with_box] = 1
+    box_with_annotation[annotation_with_box] = annotation_inds
+    
+    return box_with_annotation, matched_boxes_bin
 
+def compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx, use_variance=True):
+
+    matched_boxes = annotations_boxes[box_with_annotation_idx]
+
+    offset_cx = (matched_boxes[:,:2] - default_boxes[:,:2])
+
+    if use_variance:
+        offset_cx /= (default_boxes[:,2:] * 0.1)
+    else:
+        offset_cx /= default_boxes[:,2:]
+
+    offset_wh = torch.log(matched_boxes[:,2:]/default_boxes[:,2:])
+
+    if use_variance:
+        offset_wh /= 0.2
+    
+    return torch.cat([offset_cx, offset_wh], 1)
+
+def undo_offsets(default_boxes, predicted_offsets, use_variance=True):
+    
+    offset1_mult = default_boxes[:,2:]
+    offset2_mult = 1
+    if use_variance:
+        offset1_mult *= 0.1
+        offset2_mult *= 0.2
+    
+    cx = (offset1_mult * predicted_offsets[:,:2]) + default_boxes[:,:2]
+    wh = torch.exp(default_boxes[:,2:] * predicted_offsets[:,2:]) * offset2_mult
+
+    return torch.cat([cx, wh], 1)
+
+def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicted_classes, predicted_offsets, match_thresh=0.5, duplciate_checking=True, neg_ratio=3):
+    
+    annotations_classes = annotations_classes.long()
+    box_with_annotation_idx, matched_box_bin = match(default_boxes, annotations_boxes, match_thresh)
+
+    matched_box_idxs = (matched_box_bin.nonzero()).squeeze(0)
+    non_matched_idxs = (matched_box_bin == 0).nonzero().squeeze(0)
+    N = matched_box_idxs.size(0)
+
+    true_offsets = compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx)
+
+    regression_loss_criterion = nn.SmoothL1Loss(reduction='none')
+    regression_loss = regression_loss_criterion(predicted_offsets[matched_box_idxs], true_offsets[matched_box_idxs])
+
+    true_classifications = torch.zeros(predicted_classes.size(0), dtype=torch.long).to(predicted_classes.device)
+    true_classifications[matched_box_idxs] = annotations_classes[box_with_annotation_idx[matched_box_idxs]]
+
+    classifications_loss_criterion = nn.CrossEntropyLoss(reduction='none')
+    classifications_loss_total = classifications_loss_criterion(predicted_classes, true_classifications)
+
+    positive_classifications = classifications_loss_total[matched_box_idxs]
+    negative_classifications = classifications_loss_total[non_matched_idxs]
+
+    _, hard_negative_idxs = torch.sort(classifications_loss_total[non_matched_idxs], descending=True)
+    hard_negative_idxs = hard_negative_idxs.squeeze()[:N * neg_ratio]
+
+    classifications_loss = (positive_classifications.sum() + negative_classifications[hard_negative_idxs].sum())/N
+    regression_loss = regression_loss.sum()/N
+
+    return classifications_loss, regression_loss

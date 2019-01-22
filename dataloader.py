@@ -44,6 +44,7 @@ class LocData(Dataset):
 				self.nametoint[name.strip()] = int(i) + 1
 				self.inttoname.append(name.strip())
 			nf.close()
+			
 		elif self.data_format == 'COCO':
 			self.coco=COCO(ann_path)
 			self.imgs = sorted(self.coco.getImgIds())
