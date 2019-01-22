@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torchvision
 from torchvision.models import vgg16
 
+import itertools
+
 import numpy as np
 
 class ssd(nn.Module):
@@ -14,12 +16,13 @@ class ssd(nn.Module):
         self.layers = []
         self.vgg_layers = []
 
+
         new_layers = list(vgg16(pretrained=True).features)
         new_layers[16] = nn.MaxPool2d(2, ceil_mode=True)
         new_layers[-1] = nn.MaxPool2d(3, 1, padding=1)
 
         self.f1 = nn.Sequential(*new_layers[:23])
-        # self.bn1 = nn.BatchNorm2d(512)
+        self.bn1 = nn.BatchNorm2d(512)
 
         self.vgg_layers.append(self.f1)
 
@@ -137,7 +140,7 @@ class ssd(nn.Module):
         out_bbx = []
         
         x1 = self.f1(x)
-        # x1 = self.bn1(x1)
+        x1 = self.bn1(x1)
         
         out_cl.append(self.cl1(x1))
         out_bbx.append(self.bbx1(x1))
@@ -175,6 +178,28 @@ class ssd(nn.Module):
 
         return torch.cat(out_cl, 1), torch.cat(out_bbx, 1)
     
+    def _get_pboxes(self, smin=0.15, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], bmasks=[3, 5, 5, 5, 3, 3]):
+        sks = [round(smin + (((smax-smin)/(len(fks)-1)) * (k-1)), 2) for k in range(1, len(fks) + 1)]
+
+        boxes = []
+        for k in range(len(fks)):
+            fk = fks[k]
+            for i, j in itertools.product(range(fk), range(fk)):
+                cx = (i + 0.5)/fk
+                cy = (j + 0.5)/fk
+ 
+                wk_prime = hk_prime = np.sqrt(sks[k] * sks[min(k+1, len(sks) - 1)])
+
+                boxes.append([cx, cy, wk_prime, hk_prime])
+
+                for ar in ars[:bmasks[k]]:
+                    wk = sks[k] * np.sqrt(ar)
+                    hk = sks[k] / np.sqrt(ar)
+                    boxes.append([cx, cy, wk, hk])
+            
+        
+        boxes = torch.tensor(np.array(boxes)).float()
+        return torch.clamp(boxes, max=1.0)
     
     def _init_weights(self, vgg_16_init=False):
 
@@ -198,3 +223,34 @@ class ssd(nn.Module):
                         elif isinstance(layer, nn.BatchNorm2d):
                             nn.init.constant_(layer.weight, 1)
                             nn.init.constant_(layer.bias, 0)
+
+
+# import numpy as np  
+
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# img = torch.zeros((1, 3, 300, 300)).to(device)
+
+# model = ssd(1)
+# # model = Net()
+# model = model.to(device)
+
+# opt = torch.optim.SGD(filter(lambda x: x.requires_grad, model.parameters()), lr=1.0)
+
+# cl_loss = nn.CrossEntropyLoss()
+
+# for i in range(500):
+
+#     opt.zero_grad()
+
+#     pred = model(img)
+#     pred = pred[0][0]
+
+#     print((torch.max(pred,1)[1] == 1).sum())
+
+#     loss = cl_loss(pred, torch.ones((pred.size(0)), dtype=torch.long).to(device))
+#     print(loss)
+#     loss.backward()
+#     opt.step()
+
+
+# np.savetxt('pred.txt', pred.detach().cpu().numpy())

@@ -74,13 +74,10 @@ if __name__ == "__main__":
     num_cats = len(testset.get_categories())
 
     model = ssd(num_cats, init_weights=True)
-    print(model)
     if os.path.exists('ssd.pt'):
         model.load_state_dict(torch.load('ssd.pt'))
     model = model.to(device)
     model.eval()
-
-    
 
     default_boxes = model._get_pboxes()
     default_boxes = default_boxes.to(device)
