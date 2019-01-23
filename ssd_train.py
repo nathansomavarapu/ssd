@@ -12,6 +12,7 @@ from viz_training import VisdomTrainer
 from ssd import ssd
 
 import cv2
+import os
 
 
 def main():
@@ -23,14 +24,15 @@ def main():
 
     port = 8097
     hostname = 'http://localhost'
+    weights_dir = 'weights'
 
     vis = None
     if enable_viz:
         vis = VisdomTrainer(port, hostname)
 
-
     # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
-    trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages', 'VOC', name_path='../data/VOC2007/classes.txt')
+    trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages',
+                       'VOC', name_path='../data/VOC2007/classes.txt')
     dataloader = DataLoader(trainset, batch_size=batch_size,
                             shuffle=True, collate_fn=collate_fn_cust)
 
@@ -85,15 +87,17 @@ def main():
                 localization_loss_val = localization_loss.item()
 
                 annotations_classes_viz = annotations[0][:lens[0]][:, 0]
-                annotations_boxes_viz = annotations[0][:lens[0]][:,1:5]
+                annotations_boxes_viz = annotations[0][:lens[0]][:, 1:5]
 
                 predicted_classes_viz = predicted_classes[0]
                 predicted_offsets_viz = predicted_offsets[0]
 
                 img = utils.convert_to_np(images[0])
 
-                vis.update_viz(classification_loss_val, localization_loss_val, img, default_boxes, match_idx_viz, annotations_classes_viz, annotations_boxes_viz, predicted_classes_viz, predicted_offsets_viz)
-                
+                vis.update_viz(classification_loss_val, localization_loss_val, img, default_boxes, match_idx_viz,
+                               annotations_classes_viz, annotations_boxes_viz, predicted_classes_viz, predicted_offsets_viz)
+
+        torch.save(model.state_dict(), os.path.join(weights_dir, 'ssd_weights' + str(e) + '.pt'))
 
 
 if __name__ == "__main__":
