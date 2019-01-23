@@ -10,11 +10,13 @@ import utils
 
 from ssd import ssd
 
+import cv2
+
 
 def main():
 
     epochs = 250
-    batch_size = 32
+    batch_size = 2
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
@@ -42,6 +44,7 @@ def main():
 
             classification_loss = 0
             localization_loss = 0
+            match_idx_viz = None
             assert batch_size == predicted_classes.size(0)
 
             for j in range(batch_size):
@@ -50,10 +53,13 @@ def main():
                 annotations_classes = annotations[j][:lens[j]][:, 0]
                 annotations_boxes = annotations[j][:lens[j]][:, 1:5]
 
-                curr_cl_loss, curr_loc_loss = utils.compute_loss(
+                curr_cl_loss, curr_loc_loss, _mi = utils.compute_loss(
                     default_boxes, annotations_classes, annotations_boxes, current_classes, current_offsets)
                 classification_loss += curr_cl_loss
                 localization_loss += curr_loc_loss
+
+                if j == 0:
+                    match_idx_viz = _mi
 
             localization_loss = localization_loss / batch_size
             classification_loss = classification_loss / batch_size
@@ -63,6 +69,12 @@ def main():
             total_loss.backward()
             optimizer.step()
 
+            if i % 100 == 0:
+
+                img_np = utils.convert_to_np(images[0])
+
+                img_match = utils.draw_bbx(img_np, default_boxes[match_idx_viz], [255, 0, 0])
+                cv2.imwrite('img_match.png', img_match)
 
 if __name__ == "__main__":
     main()

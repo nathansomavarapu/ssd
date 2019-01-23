@@ -70,8 +70,8 @@ def draw_bbx(img, bbxs, color):
     h, w, _ = img.shape
 
     for bbx in bbxs:
-        lp = tuple((bbx[:2] * torch.tensor([w, h])).tolist())
-        rp = tuple((bbx[2:] * torch.tensor([w, h])).tolist())
+        lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).long().tolist())
+        rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).long().tolist())
         img = cv2.rectangle(img, lp, rp, color)
     
     return img
@@ -103,7 +103,7 @@ def convert_to_np(img, padding=None, orig_size=None):
 
     assert type(img) == type(torch.ones(1))
 
-    img = imgs[0].data.cpu().numpy()
+    img = img.data.cpu().numpy()
     img = np.transpose(img, (1,2,0))
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = (img * 255).astype(np.uint8)
@@ -211,8 +211,8 @@ def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicte
     annotations_classes = annotations_classes.long()
     box_with_annotation_idx, matched_box_bin = match(default_boxes, annotations_boxes, match_thresh)
 
-    matched_box_idxs = (matched_box_bin.nonzero()).squeeze(0)
-    non_matched_idxs = (matched_box_bin == 0).nonzero().squeeze(0)
+    matched_box_idxs = (matched_box_bin.nonzero()).squeeze(1)
+    non_matched_idxs = (matched_box_bin == 0).nonzero().squeeze(1)
     N = matched_box_idxs.size(0)
 
     true_offsets = compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx)
@@ -235,4 +235,4 @@ def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicte
     classifications_loss = (positive_classifications.sum() + negative_classifications[hard_negative_idxs].sum())/N
     regression_loss = regression_loss.sum()/N
 
-    return classifications_loss, regression_loss
+    return classifications_loss, regression_loss, matched_box_idxs
