@@ -1,4 +1,5 @@
 import torch
+from torch.autograd import Variable
 import torch.optim as optim
 import torchvision
 from torch.utils.data import DataLoader
@@ -18,7 +19,7 @@ import os
 def main():
 
     epochs = 250
-    batch_size = 32
+    batch_size_target = 2
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     enable_viz = True
 
@@ -33,7 +34,7 @@ def main():
     # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
     trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages',
                        'VOC', name_path='../data/VOC2007/classes.txt')
-    dataloader = DataLoader(trainset, batch_size=batch_size,
+    dataloader = DataLoader(trainset, batch_size=batch_size_target,
                             shuffle=True, collate_fn=collate_fn_cust)
 
     model = ssd(len(trainset.get_categories()))
@@ -54,10 +55,13 @@ def main():
 
             predicted_classes, predicted_offsets = model(images)
 
+            assert predicted_classes.size(0) == predicted_offsets.size(0)
+
+            batch_size = predicted_classes.size(0)
+
             classification_loss = 0
             localization_loss = 0
             match_idx_viz = None
-            assert batch_size == predicted_classes.size(0)
 
             for j in range(batch_size):
                 current_classes = predicted_classes[j]
@@ -89,8 +93,8 @@ def main():
                 annotations_classes_viz = annotations[0][:lens[0]][:, 0]
                 annotations_boxes_viz = annotations[0][:lens[0]][:, 1:5]
 
-                predicted_classes_viz = predicted_classes[0]
-                predicted_offsets_viz = predicted_offsets[0]
+                predicted_classes_viz = Variable(predicted_classes[0].data)
+                predicted_offsets_viz = Variable(predicted_offsets[0].data)
 
                 img = utils.convert_to_np(images[0])
 

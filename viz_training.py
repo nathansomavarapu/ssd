@@ -52,8 +52,8 @@ class VisdomTrainer():
         self.viz.line(X=x_axis, Y=cl_data, win=self.win_cl, update='append')
         self.viz.line(X=x_axis, Y=loc_data, win=self.win_loc, update='append')
 
-        self.viz.image(match_img, win=self.win_match)
-        self.viz.image(pred_img, win=self.win_pred)
+        self.viz.image(match_img, win=self.win_match, opts={'title':'Match Image'})
+        self.viz.image(pred_img, win=self.win_pred, opts={'title':'Predictions Image'})
 
         self.viz.text(true_cl_str, win=self.text_window_tr)
         self.viz.text(pred_cl_str, win=self.text_window_pred)

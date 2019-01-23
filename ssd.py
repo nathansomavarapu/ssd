@@ -133,6 +133,8 @@ class ssd(nn.Module):
         
     def forward(self, x):
 
+        print(x.size())
+
         out_cl = []
         out_bbx = []
         
