@@ -70,8 +70,8 @@ def draw_bbx(img, bbxs, color):
     h, w, _ = img.shape
 
     for bbx in bbxs:
-        lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).long().tolist())
-        rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).long().tolist())
+        lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
+        rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
         img = cv2.rectangle(img, lp, rp, color)
     
     return img
@@ -116,6 +116,14 @@ def convert_to_np(img, padding=None, orig_size=None):
     if orig_size is not None:
         img = cv2.resize(img, orig_size)
     
+    return img
+
+def convert_cvimg_pilimg(img):
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = img.astype(np.float32)/255.0
+    img = img.transpose(2,0,1)
+
     return img
 
 def get_dboxes(smin=0.07, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], num_boxes=[3, 5, 5, 5, 3, 3]):
@@ -182,14 +190,14 @@ def compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx, u
     offset_cx = (matched_boxes[:,:2] - default_boxes[:,:2])
 
     if use_variance:
-        offset_cx /= (default_boxes[:,2:] * 0.1)
+        offset_cx = offset_cx / (default_boxes[:,2:] * 0.1)
     else:
-        offset_cx /= default_boxes[:,2:]
+        offset_cx = offset_cx / default_boxes[:,2:]
 
     offset_wh = torch.log(matched_boxes[:,2:]/default_boxes[:,2:])
 
     if use_variance:
-        offset_wh /= 0.2
+        offset_wh = offset_wh / 0.2
     
     return torch.cat([offset_cx, offset_wh], 1)
 
@@ -198,8 +206,8 @@ def undo_offsets(default_boxes, predicted_offsets, use_variance=True):
     offset1_mult = default_boxes[:,2:]
     offset2_mult = 1
     if use_variance:
-        offset1_mult *= 0.1
-        offset2_mult *= 0.2
+        offset1_mult = offset1_mult * 0.1
+        offset2_mult = offset2_mult * 0.2
     
     cx = (offset1_mult * predicted_offsets[:,:2]) + default_boxes[:,:2]
     wh = torch.exp(default_boxes[:,2:] * predicted_offsets[:,2:]) * offset2_mult

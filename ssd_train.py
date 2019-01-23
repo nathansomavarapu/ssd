@@ -7,6 +7,7 @@ from dataloader import LocData
 from dataloader import collate_fn_cust
 
 import utils
+from viz_training import VisdomTrainer
 
 from ssd import ssd
 
@@ -16,8 +17,17 @@ import cv2
 def main():
 
     epochs = 250
-    batch_size = 2
+    batch_size = 32
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    enable_viz = True
+
+    port = 8097
+    hostname = 'http://localhost'
+
+    vis = None
+    if enable_viz:
+        vis = VisdomTrainer(port, hostname)
+
 
     # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
     trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages', 'VOC', name_path='../data/VOC2007/classes.txt')
@@ -71,10 +81,20 @@ def main():
 
             if i % 100 == 0:
 
-                img_np = utils.convert_to_np(images[0])
+                classification_loss_val = classification_loss.item()
+                localization_loss_val = localization_loss.item()
 
-                img_match = utils.draw_bbx(img_np, default_boxes[match_idx_viz], [255, 0, 0])
-                cv2.imwrite('img_match.png', img_match)
+                annotations_classes_viz = annotations[0][:lens[0]][:, 0]
+                annotations_boxes_viz = annotations[0][:lens[0]][:,1:5]
+
+                predicted_classes_viz = predicted_classes[0]
+                predicted_offsets_viz = predicted_offsets[0]
+
+                img = utils.convert_to_np(images[0])
+
+                vis.update_viz(classification_loss_val, localization_loss_val, img, default_boxes, match_idx_viz, annotations_classes_viz, annotations_boxes_viz, predicted_classes_viz, predicted_offsets_viz)
+                
+
 
 if __name__ == "__main__":
     main()
