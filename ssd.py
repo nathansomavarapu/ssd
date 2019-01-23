@@ -132,9 +132,6 @@ class ssd(nn.Module):
             self._init_weights(vgg_16_init=(not init_weights))
         
     def forward(self, x):
-
-        print(x.size())
-
         out_cl = []
         out_bbx = []
         
