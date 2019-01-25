@@ -4,10 +4,10 @@ Implentation of https://arxiv.org/pdf/1512.02325.pdf
 
 Dependencies:
 
-pytorch(0.4, might work with 1.0)
-lxml
-visdom
-python 3.6
+* pytorch(0.4, might work with 1.0)
+* lxml
+* visdom
+* python 3.6
 
 ## Setup
 
