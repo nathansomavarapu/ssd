@@ -13,6 +13,7 @@ class ssd(nn.Module):
         self.num_cl = num_cl
         self.layers = []
         self.vgg_layers = []
+        self.size = (300, 300)
 
         new_layers = list(vgg16(pretrained=True).features)
         new_layers[16] = nn.MaxPool2d(2, ceil_mode=True)

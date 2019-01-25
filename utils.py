@@ -6,16 +6,17 @@ import numpy as np
 import cv2
 import itertools
 
+# Takes in two tensors with boxes in point form and computes iou between them.
 def iou(tens1, tens2):
 
     assert tens1.size() == tens2.size()
 
     squeeze = False
-    if tens1.dim == 2 and tens2.dim == 2:
+    if tens1.dim() == 2 and tens2.dim() == 2:
         squeeze = True
         tens1 = tens1.unsqueeze(0)
         tens2 = tens2.unsqueeze(0)
-
+    
     assert tens1.dim() == 3 
     assert tens1.size(-1) == 4 and tens2.size(-1) == 4
 
@@ -35,8 +36,8 @@ def iou(tens1, tens2):
     iou = intersection/(area1 + area2 - intersection)
 
     if squeeze:
-        iou.squeeze(0)
-
+        iou = iou.squeeze(0)
+    
     return iou
 
 def center_to_points(center_tens):
@@ -63,16 +64,18 @@ def points_to_center(points_tens):
 
     return center
 
-def draw_bbx(img, bbxs, color):
+def draw_bbx(img, bbxs, color, classes=None):
     
     assert type(img) == type(np.zeros(1))
 
     h, w, _ = img.shape
 
-    for bbx in bbxs:
+    for i, bbx in enumerate(bbxs):
         lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
         rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
         img = cv2.rectangle(img, lp, rp, color)
+        if classes is not None:
+            img = cv2.text(img)
     
     return img
     
@@ -210,7 +213,7 @@ def undo_offsets(default_boxes, predicted_offsets, use_variance=True):
         offset2_mult = offset2_mult * 0.2
     
     cx = (offset1_mult * predicted_offsets[:,:2]) + default_boxes[:,:2]
-    wh = torch.exp(default_boxes[:,2:] * predicted_offsets[:,2:]) * offset2_mult
+    wh = torch.exp(predicted_offsets[:,2:] * offset2_mult) * default_boxes[:,2:]
 
     return torch.cat([cx, wh], 1)
 
@@ -244,3 +247,56 @@ def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicte
     regression_loss = regression_loss.sum()/N
 
     return classifications_loss, regression_loss, matched_box_idxs
+
+def get_nonzero_classes(predicted_classes, norm=False):
+
+    if norm:
+        pred_exp = torch.exp(predicted_classes)
+        predicted_classes = pred_exp/pred_exp.sum(dim=1, keepdim=True)
+
+    scores, classes = torch.max(predicted_classes, 1)
+
+    non_zero_pred_idxs = (classes != 0).nonzero()
+
+    if non_zero_pred_idxs.dim() > 1:
+        non_zero_pred_idxs = non_zero_pred_idxs.squeeze(1)
+    
+    return classes, non_zero_pred_idxs, scores
+
+# Did this in numpy previously, torch verion adapted from Fransisco Massa's orginal nms code.
+def nms_and_thresh(classes_unique, scores, all_classes, predicted_boxes, nms_thresh, class_thresh, topk=100):
+
+    boxes = torch.zeros((classes_unique.size(0) * topk, 4))
+    box_ctr = 0
+    
+    for cl in classes_unique:
+        print(cl)
+        
+        current_class_idxs = (all_classes == cl).nonzero()
+
+        if current_class_idxs.dim() > 1:
+            current_class_idxs = current_class_idxs.squeeze(1)
+        
+        current_class_scores = scores[current_class_idxs]
+        current_boxes = predicted_boxes[current_class_idxs]
+
+        sorted_scores, class_idxs_by_score = torch.sort(current_class_scores, descending=True)
+        class_idxs_by_score = class_idxs_by_score[sorted_scores >= class_thresh]
+        class_idxs_by_score = class_idxs_by_score[:topk]
+
+        while len(class_idxs_by_score) > 0:
+
+            curr_bbx = current_boxes[class_idxs_by_score[0]]
+            boxes[box_ctr] = curr_bbx
+            box_ctr += 1
+
+            other_bbxs = current_boxes[class_idxs_by_score]
+            curr_bbx = curr_bbx.expand_as(other_bbxs)
+
+            ious = iou(curr_bbx, other_bbxs)
+            
+            class_idxs_by_score = class_idxs_by_score[ious <= nms_thresh]
+    print('')
+    print('')
+        
+    return boxes, box_ctr

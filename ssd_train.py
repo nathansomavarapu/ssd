@@ -22,10 +22,12 @@ def main():
     batch_size_target = 2
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     enable_viz = True
+    pick_up = True
 
     port = 8097
     hostname = 'http://localhost'
     weights_dir = 'weights'
+    final_weights_path = os.path.join(weights_dir, 'ssd_weights_voc_250.pt')
 
     vis = None
     if enable_viz:
@@ -38,6 +40,8 @@ def main():
                             shuffle=True, collate_fn=collate_fn_cust)
 
     model = ssd(len(trainset.get_categories()))
+    if pick_up and os.path.exists(final_weights_path):
+        model.load_state_dict(torch.load(final_weights_path))
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters())
