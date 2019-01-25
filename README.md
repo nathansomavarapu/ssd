@@ -31,7 +31,7 @@ The main thing to note is the repo doesn't have the augmentation code or the dif
 
 ## Testing
 
-python ssd_eval.py runs the model over all of the images in samples/test_images with nms. Here are a couple examples:
+python ssd_eval.py runs the model over all of the images in samples/test_images with nms. Here are a couple examples, I forgot to add the classifications:
 
 ![alt text](samples/pred_images/pred_0.png)
 ![alt text](samples/pred_images/pred_1.png)
