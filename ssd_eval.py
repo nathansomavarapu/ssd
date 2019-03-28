@@ -41,7 +41,7 @@ if __name__ == "__main__":
             img_t = img_t.unsqueeze(0).to(device)
 
             s = time.time()
-            img = utils.convert_to_np(img_t[0])
+            img = utils.convert_to_pil(img_t[0])
             e = time.time()
 
             print(abs(e - s))

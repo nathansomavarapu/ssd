@@ -4,7 +4,7 @@ import glob
 import os
 from lxml import etree
 import numpy as np
-import cv2
+from PIL import Image
 import sys
 import utils
 
@@ -34,7 +34,9 @@ class LocData(Dataset):
 
 				if os.path.exists(check_img):
 					self.data.append((ann, check_img))
-		
+
+			self.data = self.data[:1]
+			
 			self.nametoint = {}
 			self.nametoint['None'] = 0
 			self.inttoname = []
@@ -97,7 +99,7 @@ class LocData(Dataset):
 				cy = y1 + h/2.0
 				
 				ann_repr.append([cl, cx, cy, w, h])
-			img = cv2.imread(curr_img)
+			img = Image.open(curr_img)
 		elif self.data_format == 'COCO':
 			curr_img_id = self.imgs[index]
 			ann_ids = self.coco.getAnnIds(imgIds=curr_img_id)
@@ -117,7 +119,7 @@ class LocData(Dataset):
 				
 				ann_repr.append([self.cat_renum_dict[cl]] + _bbx)
 
-			img = cv2.imread(os.path.join(self.img_path, img_f))
+			img = Image.open(os.path.join(self.img_path, img_f))
 			
 		elif self.data_format == 'YOLO': 
 			raise NotImplementedError()

@@ -2,8 +2,13 @@ import torch
 import torch.nn as nn
 import torch.functional as F
 
+import torchvision
+import torchvision.transforms.functional as TF
+
+from PIL import Image
+from PIL import ImageDraw
+
 import numpy as np
-import cv2
 import itertools
 
 # Takes in two tensors with boxes in point form and computes iou between them.
@@ -66,67 +71,64 @@ def points_to_center(points_tens):
 
 def draw_bbx(img, bbxs, color, classes=None):
     
-    assert type(img) == type(np.zeros(1))
+    assert img.mode == "RGB"
 
-    h, w, _ = img.shape
+    w, h = img.size
 
-    for i, bbx in enumerate(bbxs):
+    draw = ImageDraw.Draw(img)
+
+    for bbx in bbxs:
         lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
         rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
-        img = cv2.rectangle(img, lp, rp, color)
+        draw.rectangle([lp, rp], outline=color)
         if classes is not None:
-            img = cv2.text(img)
+            text_lp = (max(lp[0] - 10, 0), max(lp[1] - 10, 0))
+            img = draw.text(text_lp)
     
     return img
+
+def pad(img):
+
+    w, h = img.size
+    m = max(w, h)
+
+    diffx = m - w
+    diffy = m - h
+
+    new_img = Image.new('RGB', (m, m))
+    new_img.paste(img, (diffx//2, diffy//2))
+
+    return new_img, diffx//2, diffy//2
     
 def convert_to_tensor(img, size):
 
-    assert type(img) == type(np.zeros(1))
+    assert img.mode == "RGB"
 
-    max_side = max(img.shape[:2])
+    img, x_pad, y_pad = pad(img)
+    w, h = img.size
 
-    y_pad = int((max_side - img.shape[0])/2)
-    x_pad = int((max_side - img.shape[1])/2)
+    img = TF.resize(img, size)
+    w_new, h_new = img.size
 
-    img = np.pad(img, ((y_pad, y_pad), (x_pad, x_pad), (0,0)), mode='constant', constant_values=0)
-    img_pad_s = img.shape
-    img = cv2.resize(img, size)
-    
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = img.astype(np.float32)/255.0
+    ratio_x = w_new/float(w)
+    ratio_y = h_new/float(h)
 
-    ratio_x = img.shape[1]/float(img_pad_s[1])
-    ratio_y = img.shape[0]/float(img_pad_s[0])
-
-    img = torch.from_numpy(img.transpose(2,0,1)).float()
+    img = TF.to_tensor(img)
 
     return img, (x_pad, y_pad), (ratio_x, ratio_y)
 
-def convert_to_np(img, padding=None, orig_size=None):
+def convert_to_pil(img, padding=None, orig_size=None):
 
     assert type(img) == type(torch.ones(1))
 
-    img = img.data.cpu().numpy()
-    img = np.transpose(img, (1,2,0))
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    img = (img * 255).astype(np.uint8)
-
-    h, w, _ = img.shape
+    img = TF.to_pil_image(img.cpu())
 
     if padding is not None:
         img = img[padding[1]:(h - padding[1]), padding[0]:(w - padding[0])]
     
     if orig_size is not None:
-        img = cv2.resize(img, orig_size)
+        img = img.resize(orig_size)
     
-    return img
-
-def convert_cvimg_pilimg(img):
-
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = img.astype(np.float32)/255.0
-    img = img.transpose(2,0,1)
-
     return img
 
 def get_dboxes(smin=0.07, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], num_boxes=[3, 5, 5, 5, 3, 3]):

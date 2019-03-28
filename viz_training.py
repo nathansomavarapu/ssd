@@ -1,4 +1,3 @@
-import cv2
 import numpy as np
 import torch
 from visdom import Visdom
@@ -31,7 +30,9 @@ class VisdomTrainer():
         pred_classes = torch.unique(classes).tolist()
 
         match_img = self.get_match_img(img, default_boxes, match_idxs, ann_boxes)
+        match_img = np.array(match_img).transpose(2,0,1)
         pred_img = self.get_pred_img(img, default_boxes, predicted_offsets, non_zero_pred_idxs)
+        pred_img = np.array(pred_img).transpose(2,0,1)
 
         true_cl_str = 'True Classes: ' + str(ann_classes)
         pred_cl_str = 'Predicted Classes: ' + str(pred_classes)
@@ -64,10 +65,10 @@ class VisdomTrainer():
 
         ann_boxes_pt = utils.center_to_points(ann_boxes)
 
-        drawn_match_img = utils.draw_bbx(img, match_boxes_pt, [255, 0, 0])
-        drawn_match_img = utils.draw_bbx(img, ann_boxes_pt, [0, 255, 0])
+        drawn_match_img = utils.draw_bbx(img, match_boxes_pt, 'blue')
+        drawn_match_img = utils.draw_bbx(img, ann_boxes_pt, 'green')
 
-        return utils.convert_cvimg_pilimg(drawn_match_img)
+        return drawn_match_img
 
     def get_pred_img(self, img, default_boxes, predicted_offsets, non_zero_pred_idxs):
 
@@ -77,7 +78,6 @@ class VisdomTrainer():
         predicted_boxes_pt = utils.center_to_points(predicted_boxes)
         predicted_boxes_pt = predicted_boxes_pt[non_zero_pred_idxs]
 
-        pred_img = utils.draw_bbx(img, predicted_boxes_pt, [0, 0, 255])
-        pred_img = utils.convert_cvimg_pilimg(pred_img)
+        pred_img = utils.draw_bbx(img, predicted_boxes_pt, 'red')
 
         return pred_img
