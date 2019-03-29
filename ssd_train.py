@@ -54,7 +54,7 @@ def main():
         model.load_state_dict(torch.load(final_weights_path))
     model = model.to(device)
 
-    optimizer = optim.Adam(model.parameters())
+    # optimizer = optim.Adam(model.parameters())
     optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9)
     sched = optim.lr_scheduler.StepLR(optimizer, 150, gamma=0.1)
 
