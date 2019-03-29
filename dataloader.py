@@ -13,12 +13,13 @@ from pycocotools.coco import COCO
 
 class LocData(Dataset):
 
-	def __init__(self, ann_path, img_path, data_format, name_path=None, size=(300,300), testing=False):
+	def __init__(self, ann_path, img_path, data_format, name_path=None, size=(300,300), testing=False, transform=None):
 
 		self.data_format = data_format
 		self.data = []
 		self.size = size
 		self.testing = testing
+		self.transform = transform
 		if self.data_format == 'VOC':
 			assert name_path is not None
 
@@ -35,8 +36,7 @@ class LocData(Dataset):
 				if os.path.exists(check_img):
 					self.data.append((ann, check_img))
 
-			self.data = self.data[:1]
-			
+			# self.data = self.data[1:2]
 			self.nametoint = {}
 			self.nametoint['None'] = 0
 			self.inttoname = []
@@ -61,8 +61,7 @@ class LocData(Dataset):
 				self.inttoname.append(cat_dict['name'])
 				self.cat_renum_dict[cat_dict['id']] = i + 1
 
-
-		elif self.data_format == 'YOLO':
+		else:
 			raise NotImplementedError()
 
 	def __len__(self):
@@ -111,7 +110,7 @@ class LocData(Dataset):
 			img_f = img_f[0]['file_name']
 			for ann in anns:
 				cl = ann['category_id']
-				_bbx = ann['bbox'] # Check what format this is in
+				_bbx = ann['bbox']
 
 				x1, y1, w, h = tuple(_bbx)
 
@@ -124,7 +123,12 @@ class LocData(Dataset):
 		elif self.data_format == 'YOLO': 
 			raise NotImplementedError()
 		
-		img, (x_pad, y_pad), (ratio_x, ratio_y) = utils.convert_to_tensor(img, self.size)
+		img = img.convert('RGB')
+		
+		if self.transform is not None:
+			img, ann_repr = self.transform((img, ann_repr))
+		
+		img, (x_pad, y_pad), (ratio_x, ratio_y) = utils.convert_to_tensor(img, self.size, pad=False)
 
 		# Perform any anotation corrections
 		for ann in ann_repr:

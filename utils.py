@@ -47,6 +47,9 @@ def iou(tens1, tens2):
 
 def center_to_points(center_tens):
 
+    if center_tens.size(0) == 0:
+        return center_tens
+    
     assert center_tens.dim() == 2 
     assert center_tens.size(1) == 4 
 
@@ -100,11 +103,13 @@ def pad(img):
 
     return new_img, diffx//2, diffy//2
     
-def convert_to_tensor(img, size):
+def convert_to_tensor(img, size, pad=True):
 
     assert img.mode == "RGB"
 
-    img, x_pad, y_pad = pad(img)
+    x_pad = y_pad = 0
+    if pad:
+        img, x_pad, y_pad = pad(img)
     w, h = img.size
 
     img = TF.resize(img, size)
@@ -221,21 +226,31 @@ def undo_offsets(default_boxes, predicted_offsets, use_variance=True):
 
 def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicted_classes, predicted_offsets, match_thresh=0.5, duplciate_checking=True, neg_ratio=3):
     
-    annotations_classes = annotations_classes.long()
-    box_with_annotation_idx, matched_box_bin = match(default_boxes, annotations_boxes, match_thresh)
+    if annotations_classes.size(0) > 0:
+        annotations_classes = annotations_classes.long()
+        box_with_annotation_idx, matched_box_bin = match(default_boxes, annotations_boxes, match_thresh)
 
-    matched_box_idxs = (matched_box_bin.nonzero()).squeeze(1)
-    non_matched_idxs = (matched_box_bin == 0).nonzero().squeeze(1)
-    N = matched_box_idxs.size(0)
+        matched_box_idxs = (matched_box_bin.nonzero()).squeeze(1)
+        non_matched_idxs = (matched_box_bin == 0).nonzero().squeeze(1)
+        N = matched_box_idxs.size(0)
 
-    true_offsets = compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx)
+        true_offsets = compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx)
 
-    regression_loss_criterion = nn.SmoothL1Loss(reduction='none')
-    regression_loss = regression_loss_criterion(predicted_offsets[matched_box_idxs], true_offsets[matched_box_idxs])
+        regression_loss_criterion = nn.SmoothL1Loss(reduction='none')
+        regression_loss = regression_loss_criterion(predicted_offsets[matched_box_idxs], true_offsets[matched_box_idxs])
 
-    true_classifications = torch.zeros(predicted_classes.size(0), dtype=torch.long).to(predicted_classes.device)
-    true_classifications[matched_box_idxs] = annotations_classes[box_with_annotation_idx[matched_box_idxs]]
+        true_classifications = torch.zeros(predicted_classes.size(0), dtype=torch.long).to(predicted_classes.device)
+        true_classifications[matched_box_idxs] = annotations_classes[box_with_annotation_idx[matched_box_idxs]]
+    
+    else:
+        matched_box_idxs = torch.LongTensor([])
+        non_matched_idxs = torch.arange(default_boxes.size(0))
+        N = 1
 
+        regression_loss = torch.tensor([0.0]).to(predicted_classes.device)
+
+        true_classifications = torch.zeros(predicted_classes.size(0), dtype=torch.long).to(predicted_classes.device)
+            
     classifications_loss_criterion = nn.CrossEntropyLoss(reduction='none')
     classifications_loss_total = classifications_loss_criterion(predicted_classes, true_classifications)
 

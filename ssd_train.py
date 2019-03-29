@@ -1,8 +1,10 @@
 import torch
 from torch.autograd import Variable
 import torch.optim as optim
+
 import torchvision
 from torch.utils.data import DataLoader
+from torchvision.transforms import Compose
 
 from dataloader import LocData
 from dataloader import collate_fn_cust
@@ -12,12 +14,14 @@ from viz_training import VisdomTrainer
 
 from ssd import ssd
 
+from transforms import PhotometricDistortions, Flips, SamplePatch
+
 import os
 
 
 def main():
 
-    epochs = 250
+    epochs = 450
     batch_size_target = 8
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     enable_viz = True
@@ -31,10 +35,17 @@ def main():
     vis = None
     if enable_viz:
         vis = VisdomTrainer(port, hostname)
+    
+    transforms_train = Compose([
+        PhotometricDistortions(),
+        Flips(),
+        SamplePatch()
+    ])
 
-    # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO')
-    trainset = LocData('../data/FDDB_2010/Annotations', '../data/FDDB_2010/JPEGImages',
-                       'VOC', name_path='../data/FDDB_2010/classes.txt')
+    trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO', transform=transforms_train)
+    # trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages', 'VOC', name_path='../data/VOC2007/classes.txt', transform=transforms_train)
+    # trainset = LocData('../data/FDDB_2010/Annotations', '../data/FDDB_2010/JPEGImages',
+    #                    'VOC', name_path='../data/FDDB_2010/classes.txt', transform=transforms_train)
     dataloader = DataLoader(trainset, batch_size=batch_size_target,
                             shuffle=True, collate_fn=collate_fn_cust)
 
@@ -44,9 +55,13 @@ def main():
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters())
+    optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9)
+    sched = optim.lr_scheduler.StepLR(optimizer, 150, gamma=0.1)
 
     default_boxes = utils.get_dboxes()
     default_boxes = default_boxes.to(device)
+
+    
 
     for e in range(epochs):
         for i, data in enumerate(dataloader):
@@ -71,8 +86,9 @@ def main():
             for j in range(batch_size):
                 current_classes = predicted_classes[j]
                 current_offsets = predicted_offsets[j]
-                annotations_classes = annotations[j][:lens[j]][:, 0]
-                annotations_boxes = annotations[j][:lens[j]][:, 1:5]
+                
+                annotations_classes = annotations[j][:lens[j]][:, 0] if lens[j].item() != 0 else torch.Tensor([])
+                annotations_boxes = annotations[j][:lens[j]][:, 1:5] if lens[j].item() != 0 else torch.Tensor([])
 
                 curr_cl_loss, curr_loc_loss, _mi = utils.compute_loss(
                     default_boxes, annotations_classes, annotations_boxes, current_classes, current_offsets)
@@ -85,7 +101,7 @@ def main():
             localization_loss = localization_loss / batch_size
             classification_loss = classification_loss / batch_size
             total_loss = localization_loss + classification_loss
-
+            
             optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
@@ -95,8 +111,8 @@ def main():
                 classification_loss_val = classification_loss.item()
                 localization_loss_val = localization_loss.item()
 
-                annotations_classes_viz = annotations[0][:lens[0]][:, 0]
-                annotations_boxes_viz = annotations[0][:lens[0]][:, 1:5]
+                annotations_classes_viz = annotations[0][:lens[0]][:, 0] if lens[0].item() != 0 else torch.Tensor([])
+                annotations_boxes_viz = annotations[0][:lens[0]][:, 1:5] if lens[0].item() != 0 else torch.Tensor([])
 
                 predicted_classes_viz = Variable(predicted_classes[0].data)
                 predicted_offsets_viz = Variable(predicted_offsets[0].data)
@@ -107,6 +123,7 @@ def main():
                                annotations_classes_viz, annotations_boxes_viz, predicted_classes_viz, predicted_offsets_viz)
 
         torch.save(model.state_dict(), os.path.join(weights_dir, 'ssd_weights_' + str(e) + '.pt'))
+        sched.step()
 
 
 if __name__ == "__main__":
