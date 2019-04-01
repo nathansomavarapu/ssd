@@ -8,6 +8,8 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from PIL import ImageDraw
 
+import cv2
+
 import numpy as np
 import itertools
 
@@ -72,21 +74,40 @@ def points_to_center(points_tens):
 
     return center
 
-def draw_bbx(img, bbxs, color, classes=None):
+def draw_bbx(img, bbxs, color, classes=None, pil=True):
     
-    assert img.mode == "RGB"
+    if pil:
 
-    w, h = img.size
+        assert img.mode == "RGB"
 
-    draw = ImageDraw.Draw(img)
+        img = img.copy()
+        w, h = img.size
 
-    for bbx in bbxs:
-        lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
-        rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
-        draw.rectangle([lp, rp], outline=color)
-        if classes is not None:
-            text_lp = (max(lp[0] - 10, 0), max(lp[1] - 10, 0))
-            img = draw.text(text_lp)
+        draw = ImageDraw.Draw(img)
+
+        for i, bbx in enumerate(bbxs):
+            lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
+            rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
+            draw.rectangle([lp, rp], outline=color)
+            if classes is not None:
+                text_lp = (max(lp[0] - 10, 0), max(lp[1] - 10, 0))
+                # TODO: This is not going to work, figure out a good way to load in font
+                img = draw.text(text_lp, classes[i])
+    else:
+
+        assert type(img) == type(np.ones(1))
+
+        img = img.copy()
+        h, w = img.shape[:2]
+
+        for i, bbx in enumerate(bbxs):
+            lp = tuple((bbx[:2] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
+            rp = tuple((bbx[2:] * torch.tensor([w, h], dtype=torch.float).to(bbxs.device)).round().long().tolist())
+            img = cv2.rectangle(img, lp, rp, color)
+            if classes is not None:
+                text_lp = (max(lp[0] - 10, 0), max(lp[1] - 10, 0))
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                img = cv2.putText(img, classes[i], text_lp, font)
     
     return img
 
@@ -103,7 +124,7 @@ def pad(img):
 
     return new_img, diffx//2, diffy//2
     
-def convert_to_tensor(img, size, pad=True):
+def convert_pil_tensor(img, size, pad=True):
 
     assert img.mode == "RGB"
 
@@ -122,11 +143,13 @@ def convert_to_tensor(img, size, pad=True):
 
     return img, (x_pad, y_pad), (ratio_x, ratio_y)
 
-def convert_to_pil(img, padding=None, orig_size=None):
+def convert_tens_pil(img, padding=None, orig_size=None):
 
     assert type(img) == type(torch.ones(1))
 
     img = TF.to_pil_image(img.cpu())
+
+    w,h = img.shape[:2]
 
     if padding is not None:
         img = img[padding[1]:(h - padding[1]), padding[0]:(w - padding[0])]
@@ -134,6 +157,24 @@ def convert_to_pil(img, padding=None, orig_size=None):
     if orig_size is not None:
         img = img.resize(orig_size)
     
+    return img
+
+def convert_cv2_pil(img):
+
+    assert type(img) == type(np.ones(1))
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    im_pil = Image.fromarray(img)
+
+    return im_pil
+
+def convert_pil_cv2(img):
+    
+    assert img.mode == "RGB"
+    
+    img = np.array(img)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
     return img
 
 def get_dboxes(smin=0.07, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], num_boxes=[3, 5, 5, 5, 3, 3]):

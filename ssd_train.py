@@ -21,8 +21,8 @@ import os
 
 def main():
 
-    epochs = 450
-    batch_size_target = 8
+    epochs = 500
+    batch_size_target = 16
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     enable_viz = True
     pick_up = True
@@ -42,13 +42,14 @@ def main():
         SamplePatch()
     ])
 
-    trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO', transform=transforms_train)
+    # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO', transform=transforms_train)
     # trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages', 'VOC', name_path='../data/VOC2007/classes.txt', transform=transforms_train)
-    # trainset = LocData('../data/FDDB_2010/Annotations', '../data/FDDB_2010/JPEGImages',
-    #                    'VOC', name_path='../data/FDDB_2010/classes.txt', transform=transforms_train)
+    trainset = LocData('../data/FDDB_2010/Annotations', '../data/FDDB_2010/JPEGImages',
+                       'VOC', name_path='../data/FDDB_2010/classes.txt', transform=transforms_train)
     dataloader = DataLoader(trainset, batch_size=batch_size_target,
                             shuffle=True, collate_fn=collate_fn_cust)
 
+    print(len(trainset.get_categories()))
     model = ssd(len(trainset.get_categories()))
     if pick_up and os.path.exists(final_weights_path):
         model.load_state_dict(torch.load(final_weights_path))
@@ -117,7 +118,7 @@ def main():
                 predicted_classes_viz = Variable(predicted_classes[0].data)
                 predicted_offsets_viz = Variable(predicted_offsets[0].data)
 
-                img = utils.convert_to_pil(images[0])
+                img = utils.convert_tens_pil(images[0])
 
                 vis.update_viz(classification_loss_val, localization_loss_val, img, default_boxes, match_idx_viz,
                                annotations_classes_viz, annotations_boxes_viz, predicted_classes_viz, predicted_offsets_viz)

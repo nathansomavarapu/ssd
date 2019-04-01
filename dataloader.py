@@ -128,7 +128,7 @@ class LocData(Dataset):
 		if self.transform is not None:
 			img, ann_repr = self.transform((img, ann_repr))
 		
-		img, (x_pad, y_pad), (ratio_x, ratio_y) = utils.convert_to_tensor(img, self.size, pad=False)
+		img, (x_pad, y_pad), (ratio_x, ratio_y) = utils.convert_pil_tensor(img, self.size, pad=False)
 
 		# Perform any anotation corrections
 		for ann in ann_repr:
