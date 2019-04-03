@@ -6,9 +6,9 @@ import numpy as np
 
 class PhotometricDistortions():
     
-    def __init__(self, p=0.2):
+    def __init__(self, p=0.3):
         self.p = p
-        self.jitter = ColorJitter(brightness=0.45, saturation=0.35, hue=0.2)
+        self.jitter = ColorJitter(brightness=0.40, saturation=0.35, hue=0.05)
     
     def __call__(self, sample):
 
@@ -20,7 +20,7 @@ class PhotometricDistortions():
 
 class Flips():
 
-    def __init__(self, p=0.1):
+    def __init__(self, p=0.3):
         self.p = p
     
     def __call__(self, sample):
@@ -49,7 +49,7 @@ class Flips():
 
 class SamplePatch():
     
-    def __init__(self, p=0.1, crop_range=(0.5, 1.0)):
+    def __init__(self, p=0.2, crop_range=(0.5, 1.0)):
         self.p = p
 
         assert crop_range[0] < crop_range[1]

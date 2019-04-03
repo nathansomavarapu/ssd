@@ -66,7 +66,7 @@ class VisdomTrainer():
         ann_boxes_pt = utils.center_to_points(ann_boxes)
 
         drawn_match_img = utils.draw_bbx(img, match_boxes_pt, 'blue')
-        drawn_match_img = utils.draw_bbx(img, ann_boxes_pt, 'green')
+        drawn_match_img = utils.draw_bbx(drawn_match_img, ann_boxes_pt, 'green')
 
         return drawn_match_img
 

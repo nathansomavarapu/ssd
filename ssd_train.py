@@ -30,7 +30,7 @@ def main():
     port = 8097
     hostname = 'http://localhost'
     weights_dir = 'weights'
-    final_weights_path = os.path.join(weights_dir, 'ssd_weights_voc_' + str(epochs) + '.pt')
+    final_weights_path = os.path.join(weights_dir, 'ssd_weights_' + str(103) + '.pt')
 
     vis = None
     if enable_viz:
@@ -43,26 +43,25 @@ def main():
     ])
 
     # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO', transform=transforms_train)
-    # trainset = LocData('../data/VOC2007/Annotations', '../data/VOC2007/JPEGImages', 'VOC', name_path='../data/VOC2007/classes.txt', transform=transforms_train)
-    trainset = LocData('../data/FDDB_2010/Annotations', '../data/FDDB_2010/JPEGImages',
-                       'VOC', name_path='../data/FDDB_2010/classes.txt', transform=transforms_train)
+    trainset = LocData('../data/VOC2007/train/Annotations', '../data/VOC2007/train/JPEGImages', 'VOC', name_path='../data/VOC2007/train/classes.txt', transform=transforms_train)
+    # trainset = LocData('../data/face/face_annotations', '../data/face/face_images',
+    #                    'VOC', name_path='../data/face/classes.txt', transform=transforms_train)
+    # trainset = LocData('../data/FDDB_2010/Annotations/', '../data/FDDB_2010/JPEGImages/', 'VOC', name_path='../data/FDDB_2010/classes.txt')
     dataloader = DataLoader(trainset, batch_size=batch_size_target,
                             shuffle=True, collate_fn=collate_fn_cust)
 
     print(len(trainset.get_categories()))
-    model = ssd(len(trainset.get_categories()))
+    model = ssd(len(trainset.get_categories()), bn=True, base='resnet')
     if pick_up and os.path.exists(final_weights_path):
+        print('Picking up Training')
         model.load_state_dict(torch.load(final_weights_path))
     model = model.to(device)
 
-    # optimizer = optim.Adam(model.parameters())
     optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9)
     sched = optim.lr_scheduler.StepLR(optimizer, 150, gamma=0.1)
 
     default_boxes = utils.get_dboxes()
     default_boxes = default_boxes.to(device)
-
-    
 
     for e in range(epochs):
         for i, data in enumerate(dataloader):

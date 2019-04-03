@@ -149,7 +149,8 @@ def convert_tens_pil(img, padding=None, orig_size=None):
 
     img = TF.to_pil_image(img.cpu())
 
-    w,h = img.shape[:2]
+    w,h = img.size
+    
 
     if padding is not None:
         img = img[padding[1]:(h - padding[1]), padding[0]:(w - padding[0])]
@@ -324,17 +325,16 @@ def get_nonzero_classes(predicted_classes, norm=False):
 # Did this in numpy previously, torch verion adapted from Fransisco Massa's orginal nms code.
 def nms_and_thresh(classes_unique, scores, all_classes, predicted_boxes, nms_thresh, class_thresh, topk=100):
 
-    boxes = torch.zeros((classes_unique.size(0) * topk, 4))
+    boxes = torch.zeros((classes_unique.size(0) * topk, 6))
     box_ctr = 0
     
     for cl in classes_unique:
-        print(cl)
         
         current_class_idxs = (all_classes == cl).nonzero()
 
         if current_class_idxs.dim() > 1:
             current_class_idxs = current_class_idxs.squeeze(1)
-        
+                
         current_class_scores = scores[current_class_idxs]
         current_boxes = predicted_boxes[current_class_idxs]
 
@@ -342,10 +342,16 @@ def nms_and_thresh(classes_unique, scores, all_classes, predicted_boxes, nms_thr
         class_idxs_by_score = class_idxs_by_score[sorted_scores >= class_thresh]
         class_idxs_by_score = class_idxs_by_score[:topk]
 
+        sorted_scores = sorted_scores[sorted_scores >= class_thresh]
+        sorted_scores = sorted_scores[:topk]
+
+
         while len(class_idxs_by_score) > 0:
 
             curr_bbx = current_boxes[class_idxs_by_score[0]]
-            boxes[box_ctr] = curr_bbx
+            boxes[box_ctr,0] = cl
+            boxes[box_ctr,1] = sorted_scores[0]
+            boxes[box_ctr,2:6] = curr_bbx
             box_ctr += 1
 
             other_bbxs = current_boxes[class_idxs_by_score]
@@ -354,7 +360,6 @@ def nms_and_thresh(classes_unique, scores, all_classes, predicted_boxes, nms_thr
             ious = iou(curr_bbx, other_bbxs)
             
             class_idxs_by_score = class_idxs_by_score[ious <= nms_thresh]
-    print('')
-    print('')
+            sorted_scores = sorted_scores[ious <= nms_thresh]
         
     return boxes, box_ctr

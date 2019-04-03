@@ -36,7 +36,7 @@ class LocData(Dataset):
 				if os.path.exists(check_img):
 					self.data.append((ann, check_img))
 
-			# self.data = self.data[1:2]
+			self.data = self.data[3:6]
 			self.nametoint = {}
 			self.nametoint['None'] = 0
 			self.inttoname = []
