@@ -22,7 +22,7 @@ import os
 def main():
 
     epochs = 500
-    batch_size_target = 16
+    batch_size_target = 32
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     enable_viz = True
     pick_up = True
@@ -30,7 +30,7 @@ def main():
     port = 8097
     hostname = 'http://localhost'
     weights_dir = 'weights'
-    final_weights_path = os.path.join(weights_dir, 'ssd_weights_' + str(103) + '.pt')
+    final_weights_path = os.path.join(weights_dir, 'ssd_weights_' + str(epochs) + '.pt')
 
     vis = None
     if enable_viz:
@@ -43,9 +43,9 @@ def main():
     ])
 
     # trainset = LocData('../data/annotations2014/instances_train2014.json', '../data/train2014', 'COCO', transform=transforms_train)
-    trainset = LocData('../data/VOC2007/train/Annotations', '../data/VOC2007/train/JPEGImages', 'VOC', name_path='../data/VOC2007/train/classes.txt', transform=transforms_train)
-    # trainset = LocData('../data/face/face_annotations', '../data/face/face_images',
-    #                    'VOC', name_path='../data/face/classes.txt', transform=transforms_train)
+    # trainset = LocData('../data/VOC2007/train/Annotations', '../data/VOC2007/train/JPEGImages', 'VOC', name_path='../data/VOC2007/train/classes.txt', transform=transforms_train)
+    trainset = LocData('../data/face/face_annotations', '../data/face/face_images',
+                       'VOC', name_path='../data/face/classes.txt', transform=transforms_train)
     # trainset = LocData('../data/FDDB_2010/Annotations/', '../data/FDDB_2010/JPEGImages/', 'VOC', name_path='../data/FDDB_2010/classes.txt')
     dataloader = DataLoader(trainset, batch_size=batch_size_target,
                             shuffle=True, collate_fn=collate_fn_cust)
@@ -57,7 +57,7 @@ def main():
         model.load_state_dict(torch.load(final_weights_path))
     model = model.to(device)
 
-    optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9)
+    optimizer = optim.SGD(model.parameters(), lr=4e-3, momentum=0.9)
     sched = optim.lr_scheduler.StepLR(optimizer, 150, gamma=0.1)
 
     default_boxes = utils.get_dboxes()
@@ -121,8 +121,8 @@ def main():
 
                 vis.update_viz(classification_loss_val, localization_loss_val, img, default_boxes, match_idx_viz,
                                annotations_classes_viz, annotations_boxes_viz, predicted_classes_viz, predicted_offsets_viz)
-
-        torch.save(model.state_dict(), os.path.join(weights_dir, 'ssd_weights_' + str(e) + '.pt'))
+        if e % 10 == 0:
+            torch.save(model.state_dict(), os.path.join(weights_dir, 'ssd_weights_' + str(e) + '.pt'))
         sched.step()
 
 

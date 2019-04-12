@@ -29,7 +29,8 @@ class Flips():
         w, h = img.size
 
         if np.random.rand() <= self.p:
-            c = np.random.randint(0, high=2)
+            # NOTE: Randomize with np.random.randint(0, high=2)
+            c = 0
             if c == 0:
                 img = TF.hflip(img)
                 for ann in anns:
