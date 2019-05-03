@@ -18,6 +18,19 @@ class PhotometricDistortions():
 
         return (img, anns)
 
+class Normalize():
+
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+    
+    def __call__(self, sample):
+        img_t, anns = sample
+
+        img_t = TF.normalize(img_t, self.mean, self.std)
+
+        return (img_t, anns)
+
 class Flips():
 
     def __init__(self, p=0.3):

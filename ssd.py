@@ -25,7 +25,7 @@ class Features(nn.Module):
 
             self.f1 = nn.Sequential(*new_layers[23:])
         elif model_type == 'resnet':
-            resenet = resnet50(pretrained=True, )
+            resenet = resnet50(pretrained=True)
             list(list(resenet.layer1.children())[0].downsample.children())[0] = nn.Conv2d(64, 256, 1, padding=1, bias=False)
 
             self.f0 = nn.Sequential(*list(resenet.children())[:6])
@@ -35,7 +35,7 @@ class Features(nn.Module):
             self._init_weights()
 
         elif model_type == 'mobilenet':
-            pass
+            raise NotImplementedError()
         else:
             raise NotImplementedError()
     

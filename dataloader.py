@@ -13,13 +13,14 @@ from pycocotools.coco import COCO
 
 class LocData(Dataset):
 
-	def __init__(self, ann_path, img_path, data_format, name_path=None, size=(300,300), testing=False, transform=None):
+	def __init__(self, ann_path, img_path, data_format, name_path=None, size=(300,300), testing=False, transform=None, tensor_transforms=None):
 
 		self.data_format = data_format
 		self.data = []
 		self.size = size
 		self.testing = testing
 		self.transform = transform
+		self.tensor_transforms = tensor_transforms
 		if self.data_format == 'VOC':
 			assert name_path is not None
 
@@ -36,7 +37,7 @@ class LocData(Dataset):
 				if os.path.exists(check_img):
 					self.data.append((ann, check_img))
 
-			# self.data = self.data[3:6]
+			# self.data = self.data[0:1]
 			self.nametoint = {}
 			self.nametoint['None'] = 0
 			self.inttoname = []
@@ -84,10 +85,10 @@ class LocData(Dataset):
 			for obj in objs:
 				cl = self.nametoint[obj.find('name').text.strip()]
 				_bbx = obj.find('bndbox')
-				x1 = int(_bbx.find('xmin').text)
-				x2 = int(_bbx.find('xmax').text)
-				y1 = int(_bbx.find('ymin').text)
-				y2 = int(_bbx.find('ymax').text)
+				x1 = int(float(_bbx.find('xmin').text))
+				x2 = int(float(_bbx.find('xmax').text))
+				y1 = int(float(_bbx.find('ymin').text))
+				y2 = int(float(_bbx.find('ymax').text))
 
 				w = x2 - x1
 				h = y2 - y1
@@ -128,7 +129,7 @@ class LocData(Dataset):
 		if self.transform is not None:
 			img, ann_repr = self.transform((img, ann_repr))
 		
-		img, (x_pad, y_pad), (ratio_x, ratio_y) = utils.convert_pil_tensor(img, self.size, pad=False)
+		img, (x_pad, y_pad), (ratio_x, ratio_y) = utils.convert_pil_tensor(img, self.size, pad=False, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 		# Perform any anotation corrections
 		for ann in ann_repr:

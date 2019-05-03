@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.functional import cross_entropy
 import torch.functional as F
 
 import torchvision
@@ -12,6 +13,8 @@ import cv2
 
 import numpy as np
 import itertools
+
+from torch.autograd import Variable
 
 # Takes in two tensors with boxes in point form and computes iou between them.
 def iou(tens1, tens2):
@@ -55,8 +58,11 @@ def center_to_points(center_tens):
     assert center_tens.dim() == 2 
     assert center_tens.size(1) == 4 
 
-    lp = torch.clamp(center_tens[:,:2] - center_tens[:,2:]/2.0, min=0.0)
-    rp = torch.clamp(center_tens[:,:2] + center_tens[:,2:]/2.0, max=1.0)
+    # lp = torch.clamp(center_tens[:,:2] - center_tens[:,2:]/2.0, min=0.0)
+    # rp = torch.clamp(center_tens[:,:2] + center_tens[:,2:]/2.0, max=1.0)
+
+    lp = center_tens[:,:2] - center_tens[:,2:]/2.0
+    rp = center_tens[:,:2] + center_tens[:,2:]/2.0
 
     points = torch.cat([lp, rp], 1)
 
@@ -124,7 +130,7 @@ def pad(img):
 
     return new_img, diffx//2, diffy//2
     
-def convert_pil_tensor(img, size, pad=True):
+def convert_pil_tensor(img, size, pad=True, mean=None, std=None):
 
     assert img.mode == "RGB"
 
@@ -140,6 +146,9 @@ def convert_pil_tensor(img, size, pad=True):
     ratio_y = h_new/float(h)
 
     img = TF.to_tensor(img)
+
+    if mean is not None and std is not None:
+        img = TF.normalize(img, mean, std)
 
     return img, (x_pad, y_pad), (ratio_x, ratio_y)
 
@@ -178,7 +187,7 @@ def convert_pil_cv2(img):
 
     return img
 
-def get_dboxes(smin=0.07, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], num_boxes=[3, 5, 5, 5, 3, 3]):
+def get_dboxes(smin=0.1, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], num_boxes=[3, 5, 5, 5, 3, 3]):
     m = len(fks)
     sks = [round(smin + (((smax-smin)/(m-1)) * (k-1)), 2) for k in range(1, m + 1)]
 
@@ -200,7 +209,7 @@ def get_dboxes(smin=0.07, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19
                 boxes.append([cx, cy, w, h])
 
     boxes = torch.tensor(boxes).float()
-    return torch.clamp(boxes, max=1.0)
+    return torch.clamp(boxes, max=1.0, min=0.0)
 
 def expand_defaults_and_annotations(default_boxes, annotations_boxes):
 
@@ -250,7 +259,7 @@ def compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx, u
 
     if use_variance:
         offset_wh = offset_wh / 0.2
-    
+        
     return torch.cat([offset_cx, offset_wh], 1)
 
 def undo_offsets(default_boxes, predicted_offsets, use_variance=True):
@@ -266,46 +275,43 @@ def undo_offsets(default_boxes, predicted_offsets, use_variance=True):
 
     return torch.cat([cx, wh], 1)
 
-def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicted_classes, predicted_offsets, match_thresh=0.5, duplciate_checking=True, neg_ratio=3):
+def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicted_classes, predicted_offsets, match_thresh=0.5, neg_ratio=3):
+
+    annotations_classes = annotations_classes.long()
+    box_with_annotation_idx, matched_box_bin = match(default_boxes, annotations_boxes, match_thresh)
+
+    matched_box_idxs = (matched_box_bin.nonzero()).squeeze(1)
+    N = matched_box_idxs.size(0)
+
+    # print(matched_box_idxs)
+
+    true_offsets = compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx)
+
+    regression_loss_criterion = nn.SmoothL1Loss(reduction='none')
+    regression_loss = regression_loss_criterion(predicted_offsets[matched_box_idxs], Variable(true_offsets[matched_box_idxs], requires_grad=False))
+
+    true_classifications = torch.zeros(predicted_classes.size(0), dtype=torch.long).to(predicted_classes.device)
+    true_classifications[matched_box_idxs] = annotations_classes[box_with_annotation_idx[matched_box_idxs]]
+
+    conf_losses = cross_entropy(predicted_classes, true_classifications, reduction='none')
+
+    conf_losses[matched_box_idxs] = 0
+
+    _, top_neg = torch.sort(conf_losses, descending=True)
+
+    hard_negs = top_neg[:N*neg_ratio]
+
+    all_matches = torch.cat([hard_negs, matched_box_idxs], dim=0)
     
-    if annotations_classes.size(0) > 0:
-        annotations_classes = annotations_classes.long()
-        box_with_annotation_idx, matched_box_bin = match(default_boxes, annotations_boxes, match_thresh)
+    classifications_loss_criterion = nn.CrossEntropyLoss(size_average=False)
+    classifications_loss = classifications_loss_criterion(predicted_classes[all_matches], Variable(true_classifications[all_matches], requires_grad=False))
 
-        matched_box_idxs = (matched_box_bin.nonzero()).squeeze(1)
-        non_matched_idxs = (matched_box_bin == 0).nonzero().squeeze(1)
-        N = matched_box_idxs.size(0)
-
-        true_offsets = compute_offsets(default_boxes, annotations_boxes, box_with_annotation_idx)
-
-        regression_loss_criterion = nn.SmoothL1Loss(reduction='none')
-        regression_loss = regression_loss_criterion(predicted_offsets[matched_box_idxs], true_offsets[matched_box_idxs])
-
-        true_classifications = torch.zeros(predicted_classes.size(0), dtype=torch.long).to(predicted_classes.device)
-        true_classifications[matched_box_idxs] = annotations_classes[box_with_annotation_idx[matched_box_idxs]]
-    
-    else:
-        matched_box_idxs = torch.LongTensor([])
-        non_matched_idxs = torch.arange(default_boxes.size(0))
-        N = 1
-
-        regression_loss = torch.tensor([0.0]).to(predicted_classes.device)
-
-        true_classifications = torch.zeros(predicted_classes.size(0), dtype=torch.long).to(predicted_classes.device)
-            
-    classifications_loss_criterion = nn.CrossEntropyLoss(reduction='none')
-    classifications_loss_total = classifications_loss_criterion(predicted_classes, true_classifications)
-
-    positive_classifications = classifications_loss_total[matched_box_idxs]
-    negative_classifications = classifications_loss_total[non_matched_idxs]
-
-    _, hard_negative_idxs = torch.sort(classifications_loss_total[non_matched_idxs], descending=True)
-    hard_negative_idxs = hard_negative_idxs.squeeze()[:N * neg_ratio]
-
-    classifications_loss = (positive_classifications.sum() + negative_classifications[hard_negative_idxs].sum())/N
     regression_loss = regression_loss.sum()/N
+    classifications_loss = classifications_loss/N
 
     return classifications_loss, regression_loss, matched_box_idxs
+
+
 
 def get_nonzero_classes(predicted_classes, norm=False):
 
