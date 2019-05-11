@@ -12,6 +12,7 @@ from PIL import ImageDraw
 import cv2
 
 import numpy as np
+import math
 import itertools
 
 from torch.autograd import Variable
@@ -187,18 +188,24 @@ def convert_pil_cv2(img):
 
     return img
 
-def get_dboxes(smin=0.1, smax=0.9, ars=[1, 2, (1/2.0), 3, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], num_boxes=[3, 5, 5, 5, 3, 3]):
+def get_dboxes(smin=0.1, smax=0.9, custom_scale_arr=None, ars=[2.0, (1/2.0), 3.0, (1/3.0)], fks=[38, 19, 10, 5, 3, 1], num_boxes=[2, 4, 4, 4, 2, 2]):
     m = len(fks)
-    sks = [round(smin + (((smax-smin)/(m-1)) * (k-1)), 2) for k in range(1, m + 1)]
-
+    if custom_scale_arr is None:
+        sks = [round(smin + (((smax-smin)/(m-1)) * (k)), 2) for k in range(0, m + 1)]
+    else:
+        assert len(custom_scale_arr) == (m +1)
+        sks = custom_scale_arr
+    
     boxes = []
     for k, feat_k in enumerate(fks):
-        for i, j in itertools.product(range(feat_k), range(feat_k)):
+        for i, j in itertools.product(range(math.ceil(feat_k)), range(math.ceil(feat_k))):
 
-            cx = (i + 0.5)/feat_k
-            cy = (j + 0.5)/feat_k
+            cx = (j + 0.5)/feat_k
+            cy = (i + 0.5)/feat_k
 
-            w = h = np.sqrt(sks[k] * sks[min(k+1, len(sks) - 1)])
+            boxes.append([cx, cy, sks[k], sks[k]])
+
+            w = h = np.sqrt(sks[k] * sks[k+1])
 
             boxes.append([cx, cy, w, h])
 
@@ -306,10 +313,10 @@ def compute_loss(default_boxes, annotations_classes, annotations_boxes, predicte
     classifications_loss_criterion = nn.CrossEntropyLoss(size_average=False)
     classifications_loss = classifications_loss_criterion(predicted_classes[all_matches], Variable(true_classifications[all_matches], requires_grad=False))
 
-    regression_loss = regression_loss.sum()/N
-    classifications_loss = classifications_loss/N
+    regression_loss = regression_loss.sum()
+    classifications_loss = classifications_loss
 
-    return classifications_loss, regression_loss, matched_box_idxs
+    return classifications_loss, regression_loss, N, matched_box_idxs
 
 
 

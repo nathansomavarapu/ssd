@@ -24,7 +24,7 @@ import os
 
 def main():
 
-    epochs = 800
+    epochs = 500
     batch_size_target = 32
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     enable_viz = True
@@ -36,7 +36,7 @@ def main():
     port = 8097
     hostname = 'http://localhost'
     weights_dir = 'weights'
-    final_weights_path = os.path.join(weights_dir, 'ssd_weights_' + str(epochs-1) + '.pt')
+    final_weights_path = os.path.join(weights_dir, 'ssd_weights_' + str(0) + '.pt')
 
     vis = None
     if enable_viz:
@@ -63,7 +63,7 @@ def main():
         model.load_state_dict(torch.load(final_weights_path))
     model = model.to(device)
 
-    optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=0.0005)
+    optimizer = optim.SGD(model.parameters(), lr=4e-3, momentum=0.9, weight_decay=0.0005)
     sched = optim.lr_scheduler.MultiStepLR(optimizer, [80000, 100000, 120000], gamma=0.1)
 
     default_boxes = utils.get_dboxes()
@@ -89,6 +89,7 @@ def main():
 
             classification_loss = 0
             localization_loss = 0
+            N = 0
             match_idx_viz = None
 
             for j in range(batch_size):
@@ -99,18 +100,19 @@ def main():
                     annotations_classes = annotations[j][:lens[j]][:, 0] 
                     annotations_boxes = annotations[j][:lens[j]][:, 1:5]
 
-                    curr_cl_loss, curr_loc_loss, _mi = utils.compute_loss(
+                    curr_cl_loss, curr_loc_loss, curr_N, _mi = utils.compute_loss(
                         default_boxes, annotations_classes, annotations_boxes, current_classes, current_offsets)
-                    classification_loss += curr_cl_loss
-                    localization_loss += curr_loc_loss
+                    classification_loss = classification_loss + curr_cl_loss
+                    localization_loss = localization_loss + curr_loc_loss
+                    N = N + curr_N
 
                 if j == 0 and lens[j].item() != 0:
                     match_idx_viz = _mi
                 elif j == 0:
                     match_idx_viz = torch.LongTensor([])
 
-            localization_loss = localization_loss / batch_size
-            classification_loss = classification_loss / batch_size
+            localization_loss = localization_loss / N
+            classification_loss = classification_loss / N
             total_loss = localization_loss + classification_loss
             
             if type(total_loss) == torch.Tensor:

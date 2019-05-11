@@ -43,28 +43,29 @@ def evaluate_voc(image_path='../data/VOC2007/test/JPEGImages/', anno_path='../da
 
     print('Computing Image Detections...')
 
-    for img_f in tqdm.tqdm(imgs):
-        img = Image.open(img_f)
-        w, h = img.size
+    # for img_f in tqdm.tqdm(imgs):
+    #     img = Image.open(img_f)
+    #     w, h = img.size
 
-        preds = runner.run_inference(img, convert=False)
+    #     preds = runner.run_inference(img, convert=False)
 
-        img_num = img_f.split('/')[-1].replace('.jpg', '')
+    #     img_num = img_f.split('/')[-1].replace('.jpg', '')
         
 
-        for pred in preds:
-            outfile = os.path.join(base, int_to_cl[int(pred[0]) - 1] + '.txt')
+    #     for pred in preds:
+    #         outfile = os.path.join(base, int_to_cl[int(pred[0]) - 1] + '.txt')
 
-            line = '%s %.3f %.2f %.2f %.2f %.2f' % (img_num, pred[1], pred[2].item(
-            ) * w, pred[3].item() * h, pred[4].item() * w, pred[5].item() * h)
+    #         line = '%s %.3f %.2f %.2f %.2f %.2f' % (img_num, pred[1], pred[2].item(
+    #         ) * w, pred[3].item() * h, pred[4].item() * w, pred[5].item() * h)
 
-            with open(outfile, 'a+') as f:
-                f.write(line + '\n')
+    #         with open(outfile, 'a+') as f:
+    #             f.write(line + '\n')
 
     print('Computng APs...')
     cl_to_ap = {}
     for cl in tqdm.tqdm(int_to_cl):
-        curr_det_path = os.path.join(base, '{}.txt')
+        # curr_det_path = os.path.join(base, '{}.txt')
+        curr_det_path = os.path.join('../ssd.pytorch/data/VOCdevkit/VOC2007/results', 'det_test_{}.txt')
         
         if os.path.exists(curr_det_path.format(cl)):
 
